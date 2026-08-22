@@ -1,2 +1,2 @@
 # programma-tesoreria
-non è presente l'index
+# non è presente l'index
