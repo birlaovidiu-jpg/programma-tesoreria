@@ -322,6 +322,16 @@ textarea{min-height:76px;resize:vertical}
 .combo-list .vuoto{padding:13px 14px;font-size:14px;color:var(--muted)}
 input:focus,select:focus,textarea:focus{outline:2px solid var(--blue);outline-offset:-1px;border-color:var(--blue)}
 input[readonly]{background:#eef2f7;color:var(--muted);font-weight:700}
+/* la nota di un mese già mandato al Campo: si legge, non si tocca. Il grigio
+   chiaro dice da solo che quel mese è chiuso e che quella nota è partita. */
+#rpNotes[readonly]{background:#f5f7f9;color:#98a3b0;border-color:#e3e8ee}
+/* TRE RIGHE, misurate sulla casella vera e non sulla carta: una riga è alta
+   23,2 punti, l'imbottitura ne prende 22 e i bordi 2 — 3×23,2+24 = 94.
+   A 92 la terza riga entrava per un pelo e compariva la barretta di
+   scorrimento: due punti in più e la barretta non c'è. Prima erano 76, cioè
+   due righe e un pezzo. Vale SOLO per la nota del rapporto: tutte le altre
+   caselle da scrivere restano a 76. */
+#rpNotes{min-height:94px}
 /* le caselle di spunta devono restare quelle vere del sistema: la regola qui
    sopra toglie l'aspetto nativo a TUTTI gli input e le faceva sparire */
 input[type=checkbox],input[type=radio]{
@@ -1376,7 +1386,7 @@ tr.voided td{opacity:.5;text-decoration:line-through}
     <div class="grid">
       <div class="field"><label>Mese</label><select id="rpMonth" onchange="renderReport()"></select></div>
       <div class="field"><label>Anno</label><input id="rpYear" type="number" onchange="renderReport()"></div>
-      <div class="field wide"><label>Note per il tesoriere del Campo</label><textarea id="rpNotes" oninput="saveRpNote()" placeholder="Somme trattenute, versamenti parziali, spiegazioni…"></textarea></div>
+      <div class="field wide"><label>Note per il tesoriere del Campo</label><textarea id="rpNotes" oninput="saveRpNote()" onblur="saveRpNote(true)" placeholder="Somme trattenute, versamenti parziali, spiegazioni…"></textarea></div>
     </div>
     <div class="sumbar" id="rpSum"></div>
     <div id="rpDetail"></div>
@@ -2231,13 +2241,17 @@ const DEFAULTS={
   receipts:[],contributors:[],suppliers:[],assets:[],reports:[],transmissions:[],heads:[],
   /* le categorie dei beni, scritte una volta e poi riproposte */
   assetCats:['Arredi','Attrezzature','Strumenti','Informatica','Impianti','Libri e letteratura'],
-  contributions:{manual:{},exempt:{}}
+  contributions:{manual:{},exempt:{}},
+  /* le note del rapporto al Campo, una per mese: «2026-09» → il testo.
+     Stanno QUI DENTRO, cioe' nei dati salvati, perche' si scrivono un poco
+     alla volta lungo tutto il mese e devono esserci ancora domani. */
+  rpNotes:{}
 };
 
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='12.4', VERSIONE_DATA='6 settembre 2026';
+const VERSIONE='12.6', VERSIONE_DATA='6 settembre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -2307,6 +2321,9 @@ function migrate(x){
   s.suppliers=(x.suppliers||[]).map(toPerson).filter(p=>p.name);
   s.assets=x.assets||[];
   s.reports=(x.reports||[]).map(r=>({...r,locked:r.locked!==false}));
+  /* le note dei mesi ancora aperti · va messo qui, prima che la strada si
+     divida, se no chi ha un archivio vecchio se le perde tutte */
+  s.rpNotes={...(x.rpNotes||{})};
 
   if(x.version>=2){
     s.boxes=x.boxes?.length?x.boxes:s.boxes;
@@ -6166,9 +6183,23 @@ function campoLockLabel(){
 /* una riga è intoccabile? sì se è del Campo e la data è dentro il blocco */
 const rigaBloccata=(l,data)=>destOf(l.fund)==='Campo'&&campoBloccato(data);
 const rpSel=()=>({m:Number($('rpMonth').value),y:Number($('rpYear').value)});
-/* bozze delle note, una per mese · vivono solo finché il programma è aperto */
-const rpNoteDraft={};
-function saveRpNote(){const {y,m}=rpSel(); if(!sentReport(y,m)) rpNoteDraft[rpKey(y,m)]=$('rpNotes').value}
+/* ---------- LE NOTE DEL MESE, UNA PER MESE, E SALVATE ----------
+   Prima vivevano in un cassetto che si svuotava chiudendo il programma: si
+   scriveva una nota il 3 del mese e il giorno dopo non c'era piu'. Adesso
+   stanno in `state.rpNotes`, cioe' nei dati veri, e si possono aggiungere un
+   poco alla volta fino alla fine del mese.
+   Si salva quando si smette di scrivere, non a ogni lettera: l'archivio e'
+   grande e salvarlo a ogni tasto lo metterebbe in ginocchio. Uscendo dalla
+   casella (`onblur`) si salva subito, senza aspettare. */
+let rpNoteAttesa=0;
+function saveRpNote(subito){
+  const {y,m}=rpSel(); if(sentReport(y,m)) return;
+  state.rpNotes=state.rpNotes||{};
+  const k=rpKey(y,m), v=$('rpNotes').value;
+  if(v.trim()) state.rpNotes[k]=v; else delete state.rpNotes[k];
+  clearTimeout(rpNoteAttesa);
+  if(subito) persist(); else rpNoteAttesa=setTimeout(()=>persist(),700);
+}
 /* la data di oggi secondo l'orologio del dispositivo · adesso è quello che
    fa anche today(), questo nome resta perché lo dice a chi legge */
 const oggiQui=()=>today();
@@ -6276,10 +6307,13 @@ function renderReport(){
      quello che avevi scritto è già partito ed è conservato dentro il rapporto
      inviato (si rilegge qui sotto e nello storico). Lasciarlo scritto nella
      casella faceva credere che ci fosse ancora una nota da mandare. */
-  $('rpNotes').value=sent?'':(rpNoteDraft[rpKey(y,m)]||'');
+  /* Mese ancora aperto: c'è quello che ha scritto finora, e può aggiungerne.
+     Mese già mandato: c'è la nota COM'È PARTITA, si legge ma non si tocca —
+     grigio chiaro, così si vede da lontano che quel mese è chiuso. */
+  $('rpNotes').value=sent?(sent.notes||''):((state.rpNotes||{})[rpKey(y,m)]||'');
   $('rpNotes').readOnly=!!sent;
   $('rpNotes').placeholder=sent
-    ? 'Rapporto già inviato: la nota di questo mese è stata mandata ed è conservata qui sotto.'
+    ? 'Rapporto già inviato · per questo mese non era stata scritta nessuna nota.'
     : 'Scrivi qui se hai trattenuto qualcosa, se un versamento è parziale o se c\'è qualcosa da spiegare…';
 
   $('rpActions').innerHTML=sent
@@ -6440,8 +6474,9 @@ async function confirmSend(){
   if(ex) Object.assign(ex,obj); else state.reports.push(obj);
   /* le casse del Campo tornano a zero e il foglio delle note resta pulito
      per il mese dopo: quello che hai scritto resta scritto nel rapporto inviato */
-  delete rpNoteDraft[key];
-  $('rpNotes').value='';
+  /* la bozza del mese ha finito il suo lavoro: da adesso la nota vive dentro
+     il rapporto inviato, e da lì si rilegge nel riquadro, grigia */
+  if(state.rpNotes) delete state.rpNotes[key];
   persist(); pendingSend=null; closeModal('mSend');
   toast('Versamento registrato · casse Campo azzerate');
   renderReports(); refresh();
@@ -6737,7 +6772,13 @@ function undoTx(id){
   const t=state.transmissions.find(x=>x.id===id);
   if(!confirm(`Annullare l'invio del rapporto ${t?.key||''}?\n\nLe casse del Campo torneranno a essere da versare e il rapporto potrà essere inviato di nuovo. Fallo solo se il Campo non ha ancora incassato.`)) return;
   state.transmissions=state.transmissions.filter(x=>x.id!==id);
-  if(t) state.reports=state.reports.filter(r=>r.key!==t.key);
+  if(t){
+    /* il mese torna aperto: la nota che era partita torna a essere una bozza,
+       scrivibile. Senza questo se ne andava insieme al rapporto cancellato. */
+    const vecchio=state.reports.find(r=>r.key===t.key);
+    if(vecchio&&vecchio.notes){ state.rpNotes=state.rpNotes||{}; state.rpNotes[t.key]=vecchio.notes }
+    state.reports=state.reports.filter(r=>r.key!==t.key);
+  }
   persist(); renderReports(); refresh(); toast('Invio annullato: il rapporto è di nuovo apribile');
 }
 
