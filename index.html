@@ -1416,6 +1416,18 @@ html.tocco .line .l-fundbtn:disabled{background:#f2f4f7;color:var(--muted);curso
       <div class="field"><label>Mese</label><select id="rpMonth" onchange="renderReport()"></select></div>
       <div class="field"><label>Anno</label><input id="rpYear" type="number" onchange="renderReport()"></div>
       <div class="field wide"><label>Note per il tesoriere del Campo</label><textarea id="rpNotes" oninput="saveRpNote()" onblur="saveRpNote(true)" placeholder="Somme trattenute, versamenti parziali, spiegazioni…"></textarea></div>
+      <!-- gli allegati di QUESTO mese: partono insieme al rapporto -->
+      <div class="field wide"><label>Allegati del rapporto · PDF e foto</label>
+        <div class="toolbar" id="rpAttBtns">
+          <label class="btn gold sm" style="flex:1 1 150px">📷 Scatta una foto
+            <input id="rpShot" type="file" accept="image/*" capture="environment" hidden></label>
+          <label class="btn light sm" style="flex:1 1 150px">📎 Scegli file
+            <input id="rpFiles" type="file" accept="application/pdf,.pdf,image/*" multiple hidden></label>
+        </div>
+        <div id="rpAttConta" style="margin-top:8px;font-size:12px;color:var(--muted);font-weight:600"></div>
+        <div class="rowlist" id="rpAttList" style="margin-top:8px"></div>
+        <div class="note" style="margin-top:8px;font-size:12px">Quello che alleghi qui <b>parte insieme al rapporto</b> quando lo mandi al Campo, ed è legato a <b>questo mese</b>: cambiando mese trovi gli allegati di quel mese. Le foto vengono rimpicciolite da sole.</div>
+      </div>
     </div>
     <div class="sumbar" id="rpSum"></div>
     <div id="rpDetail"></div>
@@ -2274,13 +2286,16 @@ const DEFAULTS={
   /* le note del rapporto al Campo, una per mese: «2026-09» → il testo.
      Stanno QUI DENTRO, cioe' nei dati salvati, perche' si scrivono un poco
      alla volta lungo tutto il mese e devono esserci ancora domani. */
-  rpNotes:{}
+  rpNotes:{},
+  /* gli allegati del rapporto al Campo, una lista per mese: «2026-09» → [file].
+     Come le note, stanno legati al loro mese e non si mescolano mai. */
+  rpAtt:{}
 };
 
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='12.7', VERSIONE_DATA='6 settembre 2026';
+const VERSIONE='12.8', VERSIONE_DATA='6 settembre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -2353,6 +2368,7 @@ function migrate(x){
   /* le note dei mesi ancora aperti · va messo qui, prima che la strada si
      divida, se no chi ha un archivio vecchio se le perde tutte */
   s.rpNotes={...(x.rpNotes||{})};
+  s.rpAtt={}; for(const k in (x.rpAtt||{})) s.rpAtt[k]=(x.rpAtt[k]||[]).filter(Boolean);
 
   if(x.version>=2){
     s.boxes=x.boxes?.length?x.boxes:s.boxes;
@@ -2448,6 +2464,11 @@ function attRefs(st){
   const out=[];
   (st.receipts||[]).forEach(r=>(r.attachments||[]).forEach(a=>{ if(a) out.push(a) }));
   (st.assets||[]).forEach(b=>(b.photos||[]).forEach(a=>{ if(a) out.push(a) }));
+  /* GLI ALLEGATI DEI RAPPORTI VANNO CONTATI QUI DENTRO.
+     Chi non è in questo elenco viene considerato roba avanzata e la pulizia
+     lo CANCELLA dall'archivio. Dimenticarli qui vuol dire perderli. */
+  const ra=st.rpAtt||{};
+  for(const k in ra) (ra[k]||[]).forEach(a=>{ if(a) out.push(a) });
   return out;
 }
 const attSaved=new Set();
@@ -2475,7 +2496,8 @@ function hydrateAttachments(){
   attReady=(async()=>{
     let n=0;
     const liste=[...(state.receipts||[]).map(r=>r.attachments||[]),
-                 ...(state.assets||[]).map(b=>b.photos||[])];
+                 ...(state.assets||[]).map(b=>b.photos||[]),
+                 ...Object.values(state.rpAtt||{})];
     for(const l of liste){
       for(const a of l){
         if(a.data||!a.aid) continue;
@@ -3544,6 +3566,81 @@ function pittaCassa(riga){
   b.classList.toggle('vuoto',!sel.value);
   b.disabled=sel.disabled;
 }
+/* ==========================================================
+   GLI ALLEGATI DEL RAPPORTO AL CAMPO
+   Una lista per mese, in `state.rpAtt`. Partono insieme al rapporto quando
+   lo si manda, si riaprono con un tocco, e a rapporto inviato restano li' da
+   leggere ma non si tolgono piu' — come le note.
+   Riusano tutto quello che c'e' gia' per le ricevute: lo stesso rimpicciolire
+   le foto, lo stesso `openAtt`, lo stesso magazzino in IndexedDB.
+   ========================================================== */
+const rpAttDi=k=>((state.rpAtt=state.rpAtt||{})[k]=state.rpAtt[k]||[]);
+function renderRpAtt(){
+  const {y,m}=rpSel(), k=rpKey(y,m), chiuso=!!sentReport(y,m);
+  const l=(state.rpAtt||{})[k]||[];
+  const lista=$('rpAttList'); if(!lista) return;
+  lista.innerHTML=l.length?l.map((a,i)=>
+    `<div class="rowitem"><span class="rl"><b>${attIcon(a)} ${esc(a.name)}</b>
+       <small>${Math.round((a.size||0)/1024)} KB${a.data?'':' · sto ancora caricando…'}</small></span>
+     <span class="rr"><button class="btn light sm" onclick="apriRpAtt(${i})">👁️ Apri</button>
+     ${chiuso?'':`<button class="btn light sm" onclick="togliRpAtt(${i})">Rimuovi</button>`}</span></div>`).join('')
+    :'';
+  /* il contenuto degli allegati si riprende dall'archivio ADESSO, che c'è
+     tempo: al momento dell'invio dev'essere già in mano, perché lì non si può
+     aspettare nemmeno un istante (vedi shareFieldDocs). */
+  if(l.some(a=>a&&!a.data)) hydrateAttachments().then(()=>{ if(rpKey(rpSel().y,rpSel().m)===k) renderRpAtt() });
+  const c=$('rpAttConta');
+  if(c) c.textContent=chiuso
+    ? (l.length?`${l.length} ${l.length===1?'allegato mandato':'allegati mandati'} al Campo con questo rapporto`
+               :'Nessun allegato era stato mandato con questo rapporto')
+    : (l.length?`${l.length} ${l.length===1?'allegato':'allegati'} · puoi arrivare a ${MAXALLEGATI}`
+               :`Nessun allegato · puoi metterne fino a ${MAXALLEGATI}`);
+  /* a rapporto inviato non si aggiunge piu' niente: il mese e' chiuso */
+  $('rpAttBtns')?.querySelectorAll('label,input').forEach(e=>{
+    if(e.tagName==='LABEL') e.style.display=chiuso?'none':'';
+    else e.disabled=chiuso;
+  });
+}
+function apriRpAtt(i){
+  const {y,m}=rpSel();
+  openAtt(((state.rpAtt||{})[rpKey(y,m)]||[])[i]);
+}
+function togliRpAtt(i){
+  const {y,m}=rpSel(), k=rpKey(y,m);
+  if(sentReport(y,m)) return;
+  const l=rpAttDi(k);
+  if(!confirm(`Togliere "${l[i]?.name||''}" dagli allegati di ${MONTHS[m-1]} ${y}?`)) return;
+  l.splice(i,1);
+  if(!l.length) delete state.rpAtt[k];
+  persist(); renderRpAtt();
+}
+async function aggiungiRpAtt(input){
+  const files=[...input.files]; input.value='';
+  const {y,m}=rpSel(), k=rpKey(y,m);
+  if(sentReport(y,m)){toast('Rapporto già inviato: gli allegati di questo mese non si cambiano più');return}
+  const l=rpAttDi(k);
+  for(const f of files){
+    const isImg=/^image\//.test(f.type);
+    const isPdf=/pdf$/i.test(f.name)||f.type==='application/pdf';
+    if(!isImg&&!isPdf){toast(`"${f.name}": puoi allegare solo PDF o foto`);continue}
+    if(l.length>=MAXALLEGATI){toast(`Massimo ${MAXALLEGATI} allegati per rapporto`);break}
+    try{
+      if(isImg){
+        const ph=await shrinkPhoto(f,1600,.72);
+        l.push({name:f.name.replace(/\.[^.]+$/,'')+'.jpg',
+          size:Math.round(ph.data.length*0.75),type:'image/jpeg',data:ph.data});
+      }else{
+        if(f.size>MAXFILE){toast(`"${f.name}" supera ${Math.round(MAXFILE/1073741824)} GB: è troppo grosso`);continue}
+        const data=await new Promise((res,rej)=>{
+          const rd=new FileReader(); rd.onerror=()=>rej(rd.error);
+          rd.onload=()=>res(rd.result); rd.readAsDataURL(f);
+        });
+        l.push({name:f.name,size:f.size,type:'application/pdf',data});
+      }
+      persist(); renderRpAtt();
+    }catch(err){ console.error(err); toast(`Non riesco a leggere "${f.name}"`) }
+  }
+}
 function chiudiCasse(){ document.querySelector('.fdrop')?.remove() }
 /* l'elenco delle casse, quello nostro · si apre sotto il pulsante, dentro la
    riga, e si chiude toccando fuori o scegliendo. `onmousedown` annullato sia
@@ -3819,6 +3916,8 @@ async function addAttachments(input){
 }
 $('rFiles').addEventListener('change',e=>addAttachments(e.target));
 $('rShot').addEventListener('change',e=>addAttachments(e.target));
+$('rpFiles')?.addEventListener('change',e=>aggiungiRpAtt(e.target));
+$('rpShot')?.addEventListener('change',e=>aggiungiRpAtt(e.target));
 
 /* ==========================================================
    SCANSIONA DOCUMENTO
@@ -6385,6 +6484,7 @@ function renderReport(){
      grigio chiaro, così si vede da lontano che quel mese è chiuso. */
   $('rpNotes').value=sent?(sent.notes||''):((state.rpNotes||{})[rpKey(y,m)]||'');
   $('rpNotes').readOnly=!!sent;
+  renderRpAtt();
   $('rpNotes').placeholder=sent
     ? 'Rapporto già inviato · per questo mese non era stata scritta nessuna nota.'
     : 'Scrivi qui se hai trattenuto qualcosa, se un versamento è parziale o se c\'è qualcosa da spiegare…';
@@ -6740,8 +6840,20 @@ async function shareFieldDocs(yy,mm,conLettera){
   }catch(e){console.error(e);toast('Non riesco a creare il rapporto');return}
   const subject=fieldMailSubject(f.d), body=fieldMailBody(f.d);
   const to=state.settings.fieldMail||'', chiesa=state.settings.churchMail||'';
-  /* solo il PDF: la ricevuta in Excel si manda a parte, se il Campo la chiede */
-  const files=[pdf];
+  /* il rapporto in PDF, e dietro gli allegati di QUEL mese: fatture, contabili,
+     quello che ha attaccato lui. La ricevuta in Excel no: si manda a parte,
+     se il Campo la chiede.
+     ⚠️ QUI NON CI VA NESSUNA ATTESA. Fra il tocco e il foglio di condivisione
+     non deve esserci un solo `await`, se no Safari lo rifiuta e il rapporto
+     finisce salvato invece che condiviso. Il contenuto degli allegati viene
+     ripreso dall'archivio molto prima, quando si apre la schermata Rapporti
+     (`renderRpAtt`): qui si prende quello che è già pronto. */
+  const suoi=((state.rpAtt||{})[rpKey(y,m)]||[])
+    .filter(a=>a&&a.data)
+    .map(a=>{ try{ const b=dataUrlToBlob(a.data); return new File([b],a.name,{type:b.type}) }
+              catch(e){ console.error(e); return null } })
+    .filter(Boolean);
+  const files=[pdf,...suoi];
 
   if(navigator.canShare?.({files})){
     /* IL FOGLIO DI CONDIVISIONE VA CHIAMATO SUBITO, finché il tocco vale
