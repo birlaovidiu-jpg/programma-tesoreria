@@ -2316,7 +2316,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='13.0', VERSIONE_DATA='6 settembre 2026';
+const VERSIONE='13.1', VERSIONE_DATA='6 settembre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -2973,7 +2973,7 @@ function go(id){
   $('main').classList.toggle('home-pad',id==='home');
   $('main').scrollTop=0;
   const r={home:renderHome,receipts:renderReceipts,funds:renderFunds,contrib:renderContrib,
-           reports:renderReports,people:renderPeople,assets:renderAssets,
+           reports:()=>renderReports(true),people:renderPeople,assets:renderAssets,
            settings:renderSettings,data:renderData,archive:renderArchive,help:()=>renderHelp()}[id];
   if(r) r();
   paintBackupAlert(); paintSpazio(); paintAvvisoOffline();
@@ -6420,13 +6420,42 @@ const oggiQui=()=>today();
 const prevDay=d=>{const z=new Date(d+'T12:00:00');z.setDate(z.getDate()-1);return z.toISOString().slice(0,10)};
 const nextDay=d=>{const z=new Date(d+'T12:00:00');z.setDate(z.getDate()+1);return z.toISOString().slice(0,10)};
 
-function renderReports(){
+/* ---------- QUALE MESE SI APRE ENTRANDO IN «RAPPORTI» ----------
+   Quello DA MANDARE, mai uno gia' mandato.
+   Si parte dal mese scorso — quello che normalmente si manda — e se e' gia'
+   partito si va avanti, mese per mese, fino a trovarne uno ancora da fare.
+   Cosi': agosto non mandato → agosto; agosto mandato → settembre.
+   Un rapporto gia' inviato si rivede benissimo, ma andandolo a cercare: o
+   cambiando mese a mano, o dallo storico in fondo alla pagina. All'ingresso
+   ci si trova sempre davanti quello che c'e' da fare. */
+function meseDaInviare(){
+  const n=new Date();
+  let y=n.getFullYear(), m=n.getMonth();     /* getMonth() e' 0-based: e' il mese SCORSO */
+  if(m===0){ m=12; y-- }
+  for(let i=0;i<36;i++){
+    if(!sentReport(y,m)) return {y,m};
+    m++; if(m>12){ m=1; y++ }
+  }
+  return {y,m};
+}
+/* si rimette il mese giusto ENTRANDO nella pagina: se era stato cambiato per
+   dare un'occhiata a un mese vecchio, uscendo e rientrando si ritrova quello
+   da mandare, senza doverlo rimettere a mano.
+   `primoIngresso` lo passa solo `go()`: i ridisegni che arrivano da altre
+   parti — una ricevuta salvata, un invio annullato — NON devono spostargli il
+   mese sotto gli occhi mentre sta guardando. */
+function posizionaMeseRapporto(){
+  const {y,m}=meseDaInviare();
+  if($('rpMonth')) $('rpMonth').value=m;
+  if($('rpYear')) $('rpYear').value=y;
+}
+function renderReports(primoIngresso){
   if(!$('rpMonth').options.length){
     $('rpMonth').innerHTML=MONTHS.map((n,i)=>`<option value="${i+1}">${n[0].toUpperCase()+n.slice(1)}</option>`).join('');
-    const n=new Date(); $('rpMonth').value=n.getMonth()||12;
     $('rpYear').value=state.settings.year;
     setChPeriod('quarter');
-  }
+    posizionaMeseRapporto();
+  }else if(primoIngresso) posizionaMeseRapporto();
   renderReport(); renderChurchPreview(); renderTx();
 }
 
