@@ -2316,7 +2316,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='13.1', VERSIONE_DATA='6 settembre 2026';
+const VERSIONE='13.2', VERSIONE_DATA='6 settembre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -3574,6 +3574,20 @@ function mostraRiga(riga){
   const c=corpo.getBoundingClientRect(), aria=10;
   if(r.bottom>c.bottom-aria)      corpo.scrollTop+=r.bottom-c.bottom+aria;
   else if(r.top<c.top+aria)       corpo.scrollTop-=c.top+aria-r.top;
+  /* LA STRISCIA NERA NON DEVE MAI FINIRE SOTTO LA BARRA DEI PULSANTI.
+     Sta un gradino piu' in basso dell'ultima riga: portando in vista la riga
+     la striscia restava tagliata a meta' dalla barra bianca, e con lei il
+     tasto «+ Aggiungi riga» e il totale. Quando si e' sull'ULTIMA riga si
+     scorre quel tanto in piu' perche' la striscia si veda tutta.
+     Solo sull'ultima: se si sta correggendo una riga in mezzo, la vista non
+     deve saltare in fondo. */
+  if(riga.parentElement&&riga===riga.parentElement.lastElementChild){
+    const tot=corpo.querySelector('.line-total');
+    if(tot){
+      const t=tot.getBoundingClientRect(), c2=corpo.getBoundingClientRect();
+      if(t.height&&t.bottom>c2.bottom-aria) corpo.scrollTop+=t.bottom-c2.bottom+aria;
+    }
+  }
 }
 /* `dallUtente` e' vero SOLO quando la cassa l'ha scelta lui con il dito.
    Il programma chiama questa stessa funzione anche da solo — quando nasce una
