@@ -1762,7 +1762,12 @@ tr.voided td{opacity:.5;text-decoration:line-through}
       <div id="rLockNote" style="margin-top:14px"></div>
       <div style="margin:16px 0 8px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
         <b style="font-size:14px">Dettaglio · fino a 40 righe</b>
-        <button class="btn blue sm addriga" onclick="addLine()">+ Aggiungi riga</button>
+        <!-- `onmousedown` che annulla il suo effetto: senza, il tocco toglie il
+             fuoco alla casella in cui si stava scrivendo e l'iPad chiude la
+             tastiera. Cosi' il fuoco non se ne va e la tastiera resta su;
+             il tocco vero e proprio (onclick) parte lo stesso. -->
+        <button class="btn blue sm addriga" onmousedown="event.preventDefault()"
+                onclick="addLine()">+ Aggiungi riga</button>
       </div>
       <div class="lines" id="lines"></div>
       <div class="line-total"><span>Totale ricevuta</span><b id="rTotal">€ 0,00</b></div>
@@ -2232,7 +2237,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='12.2', VERSIONE_DATA='6 settembre 2026';
+const VERSIONE='12.3', VERSIONE_DATA='6 settembre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -3451,7 +3456,17 @@ function addLine(l={}){
      Quando invece si sta riaprendo una ricevuta già scritta, le righe si
      rimettono una per una e la finestra non deve saltare: si scorre solo se
      la riga è nuova, cioè se addLine è stata chiamata senza dati. */
-  if(!arguments.length) mostraRiga(d);
+  if(!arguments.length){
+    /* LA TASTIERA NON DEVE SPARIRE.
+       Restare aperta vuol dire avere sempre una casella col fuoco dentro:
+       appena la riga nasce, il fuoco ci va: dalla descrizione si riparte a
+       scrivere subito. Va fatto QUI, dentro il tocco che ha premuto il
+       pulsante — l'iPad la tastiera la tiene aperta solo se il fuoco passa
+       da una casella all'altra nello stesso momento del tocco; rimandarlo
+       anche solo di un istante la fa richiudere. */
+    d.querySelector('.l-desc')?.focus({preventScroll:true});
+    mostraRiga(d);
+  }
 }
 /* ---------- PORTA LA RIGA TUTTA DENTRO LA FINESTRA ----------
    Il corpo della finestra scorre e finisce dove comincia la barra dei
