@@ -2237,7 +2237,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='12.3', VERSIONE_DATA='6 settembre 2026';
+const VERSIONE='12.4', VERSIONE_DATA='6 settembre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -3425,7 +3425,7 @@ function addLine(l={}){
     <button type="button" class="l-mese" title="I mesi del contributo · toccala per sceglierne anche più di uno"
             data-mesi="${(l.mesi&&l.mesi.length?l.mesi:(Number(l.mese)?[Number(l.mese)]:[])).join(',')}"
             onclick="apriMesi(this)">${esc(etichettaMesi(l.mesi&&l.mesi.length?l.mesi:(Number(l.mese)?[Number(l.mese)]:[])))}</button>
-    <select class="l-fund" onchange="syncLine(this)">
+    <select class="l-fund" onchange="syncLine(this,true)">
       <option value="">— Cassa —</option>
       ${availableFunds().map(f=>`<option value="${esc(f.name)}"${f.name===l.fund?' selected':''}>${esc(f.name)}</option>`).join('')}
     </select>
@@ -3482,13 +3482,30 @@ function mostraRiga(riga){
   if(r.bottom>c.bottom-aria)      corpo.scrollTop+=r.bottom-c.bottom+aria;
   else if(r.top<c.top+aria)       corpo.scrollTop-=c.top+aria-r.top;
 }
-function syncLine(sel){
+/* `dallUtente` e' vero SOLO quando la cassa l'ha scelta lui con il dito.
+   Il programma chiama questa stessa funzione anche da solo — quando nasce una
+   riga e quando l'elenco delle casse va rifatto — e in quei casi il fuoco non
+   si deve toccare, se no la tastiera salta da una casella all'altra da sola. */
+function syncLine(sel,dallUtente){
   const riga=sel.closest('.line');
   const dest=destOf(sel.value);
   const b=riga.querySelector('.l-dest');
   b.textContent=dest||'—';
   b.className='l-dest '+(dest||'none');
   meseDellaRiga(riga);
+  /* LA TASTIERA NON DEVE SPARIRE NEMMENO QUI.
+     Su iPad la tendina della cassa e' una ruota di sistema: mentre gira, la
+     tastiera se ne va, e scelta la cassa non torna piu' — bisognava toccare
+     l'importo a mano. Adesso, appena scelto, il fuoco va SULL'IMPORTO, che e'
+     la casella dove si scrive subito dopo: la tastiera si riapre da sola, ed
+     e' gia' quella dei numeri. Vale in entrata e in uscita: il modulo e'
+     lo stesso per tutte e due.
+     Va fatto qui dentro, nel momento stesso della scelta: rimandarlo anche
+     di un istante e l'iPad non riapre piu' niente. */
+  if(dallUtente){
+    riga.querySelector('.l-amt')?.focus({preventScroll:true});
+    mostraRiga(riga);
+  }
 }
 /* La casella del mese si vede solo sulle righe del Contributo. Quando compare,
    dentro c'è già il mese che quella persona deve pagare: non lo si cerca. */
