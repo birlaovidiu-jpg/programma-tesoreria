@@ -816,12 +816,18 @@ html.tocco .line .l-fundbtn>span{overflow:hidden;text-overflow:ellipsis;white-sp
 html.tocco .line .l-fundbtn>em{font-style:normal;color:#6d7a8a;font-size:11px;flex:0 0 auto}
 html.tocco .line .l-fundbtn.vuoto>span{color:var(--muted)}
 html.tocco .line .l-fundbtn:disabled{background:#f2f4f7;color:var(--muted);cursor:default}
-/* l'elenco delle casse · sta dentro la riga, che e' gia' posizionata */
+/* L'ELENCO DELLE CASSE STA SOPRA A TUTTO, NON DENTRO LA RIGA.
+   Finche' viveva dentro il corpo della finestra — che scorre — era quello a
+   tagliarlo: con la tastiera aperta si vedevano cinque casse su sedici. Ora e'
+   `fixed`, appeso allo schermo: puo' prendersi tutta l'altezza che c'e' fra
+   la cima della finestra e la tastiera, e ci stanno otto-dieci casse.
+   Le voci sono alte 36 invece di 38: due punti a voce, e ne entra una in piu'
+   senza che il dito faccia fatica. */
 .fdrop{
-  position:absolute;z-index:41;background:#fff;border:1px solid var(--line);border-radius:12px;
-  box-shadow:var(--sh2);max-height:calc(7 * 38px);overflow-y:auto;
-  -webkit-overflow-scrolling:touch;padding:5px
+  position:fixed;z-index:66;background:#fff;border:1px solid var(--line);border-radius:12px;
+  box-shadow:var(--sh2);overflow-y:auto;-webkit-overflow-scrolling:touch;padding:5px
 }
+.fdrop .nvoce{height:36px;padding:8px 11px}
 .line .l-amt{padding-left:9px;padding-right:9px;text-align:right;font-weight:700}
 .line .l-dest{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;align-self:center;justify-self:start;padding:5px 11px;border-radius:999px;text-align:center;white-space:nowrap}
 .l-dest.Locale{background:var(--gold-s);color:var(--gold)}
@@ -851,7 +857,17 @@ html.tocco .line .l-fundbtn:disabled{background:#f2f4f7;color:var(--muted);curso
 /* il pulsante che si usa più spesso dentro la ricevuta: si deve vedere */
 .btn.addriga{box-shadow:0 3px 10px rgba(37,99,235,.28);letter-spacing:.01em}
 .btn.addriga:hover{filter:brightness(1.06)}
-.line-total{display:flex;justify-content:space-between;align-items:center;background:var(--ink);color:#fff;border-radius:12px;padding:12px 15px;margin-top:11px;font-weight:700}
+.line-total{display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--ink);color:#fff;border-radius:12px;padding:10px 12px;margin-top:11px;font-weight:700}
+/* il pulsante dentro la striscia nera: resta blu con la scritta bianca,
+   com'era, e non si allarga · la scritta «Totale ricevuta» gli sta accanto
+   e l'importo resta all'estrema destra */
+.line-total .addriga{flex:0 0 auto;min-height:40px;padding:9px 14px}
+.line-total>span{flex:1 1 auto;min-width:0}
+@media (max-width:560px){
+  .line-total{flex-wrap:wrap}
+  .line-total .addriga{order:3;width:100%}
+  .line-total>span{flex:1 1 auto}
+}
 .line-total b{font-size:20px;letter-spacing:-.02em}
 
 /* ============ RICEVUTA A5 ============ */
@@ -1813,15 +1829,20 @@ html.tocco .line .l-fundbtn:disabled{background:#f2f4f7;color:var(--muted);curso
       <div id="rLockNote" style="margin-top:14px"></div>
       <div style="margin:16px 0 8px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
         <b style="font-size:14px">Dettaglio · fino a 40 righe</b>
-        <!-- `onmousedown` che annulla il suo effetto: senza, il tocco toglie il
-             fuoco alla casella in cui si stava scrivendo e l'iPad chiude la
-             tastiera. Cosi' il fuoco non se ne va e la tastiera resta su;
-             il tocco vero e proprio (onclick) parte lo stesso. -->
-        <button class="btn blue sm addriga" onmousedown="event.preventDefault()"
-                onclick="addLine()">+ Aggiungi riga</button>
       </div>
       <div class="lines" id="lines"></div>
-      <div class="line-total"><span>Totale ricevuta</span><b id="rTotal">€ 0,00</b></div>
+      <!-- IL PULSANTE STA NELLA STRISCIA NERA, che scende insieme alle righe:
+           aggiunta una riga, il pulsante e' subito li' sotto e non si deve
+           risalire ogni volta a cercarlo.
+           `onmousedown` che annulla il suo effetto: senza, il tocco toglie il
+           fuoco alla casella in cui si stava scrivendo e l'iPad chiude la
+           tastiera. Cosi' il fuoco non se ne va e la tastiera resta su; il
+           tocco vero e proprio (onclick) parte lo stesso. -->
+      <div class="line-total">
+        <button class="btn blue sm addriga" onmousedown="event.preventDefault()"
+                onclick="addLine()">+ Aggiungi riga</button>
+        <span>Totale ricevuta</span><b id="rTotal">€ 0,00</b>
+      </div>
 
       <div class="grid" style="margin-top:14px">
         <div class="field wide"><label>Note</label><textarea id="rNotes" placeholder="Note aggiuntive che compaiono sulla ricevuta"></textarea></div>
@@ -2295,7 +2316,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='12.9', VERSIONE_DATA='6 settembre 2026';
+const VERSIONE='13.0', VERSIONE_DATA='6 settembre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -3653,24 +3674,32 @@ function apriCasse(b){
   if(eraAperto) return;
   const sel=riga.querySelector('.l-fund'); if(!sel||sel.disabled) return;
   const d=document.createElement('div'); d.className='fdrop';
-  d.innerHTML=[...sel.options].map(o=>
+  /* nell'elenco ci vanno SOLO le casse vere: la riga «— Cassa —» era solo un
+     segnaposto della tendina di sistema, qui non serve a niente e rubava il
+     posto a una cassa. */
+  const casse=[...sel.options].filter(o=>o.value);
+  d.innerHTML=casse.map(o=>
     `<button type="button" class="nvoce${o.value===sel.value?' sel':''}" data-v="${esc(o.value)}">${esc(o.textContent)}</button>`).join('');
-  riga.appendChild(d);
-  d.style.left=b.offsetLeft+'px';
-  d.style.top=(b.offsetTop+b.offsetHeight+4)+'px';
-  d.style.width=Math.max(b.offsetWidth,180)+'px';
-  /* L'ELENCO SI DEVE VEDERE, NON BASTA APRIRLO.
-     Con la tastiera aperta restano poche dita di finestra: se la riga e' in
-     fondo, l'elenco nasceva tutto SOTTO il bordo — diciassette casse e
-     nemmeno una visibile. Allora si porta il pulsante in cima al corpo, che
-     e' la parte che scorre, e all'elenco si da' l'altezza che resta davvero,
-     misurata adesso. Stessa cura della tendina dei nomi. */
-  const corpo=riga.closest('.sheet-body');
-  if(corpo){
-    corpo.scrollTop+=b.getBoundingClientRect().top-corpo.getBoundingClientRect().top-6;
-    const spazio=corpo.getBoundingClientRect().bottom-d.getBoundingClientRect().top-10;
-    d.style.maxHeight=Math.max(114,Math.floor(spazio))+'px';
-  }
+  document.body.appendChild(d);
+  /* QUANTE CASSE SI VEDONO: tutte quelle che ci stanno.
+     L'elenco puo' prendersi TUTTA la finestra visibile — dal bordo di sopra
+     fin dove comincia la tastiera — perche' e' appeso allo schermo e non
+     dentro la parte che scorre. La finestra visibile e' quella della modale,
+     alta `--vvh`, che si ferma da sola sopra la tastiera.
+     Si parte da sotto il pulsante; se cosi' sfora in basso lo si alza quel
+     tanto che basta, e se anche cosi' non ci sta lo si appoggia in cima.
+     Nessun numero fisso di righe: comanda lo spazio che c'e'. */
+  const VOCE=36, CORNICE=12, MARG=8;
+  const fin=(b.closest('.modal')||document.documentElement).getBoundingClientRect();
+  const bb=b.getBoundingClientRect();
+  const tetto=fin.top+MARG, fondo=fin.bottom-MARG;
+  const alt=Math.max(3*VOCE+CORNICE,Math.min(casse.length*VOCE+CORNICE,fondo-tetto));
+  let top=bb.bottom+4;
+  if(top+alt>fondo) top=Math.max(tetto,fondo-alt);
+  d.style.maxHeight=Math.floor(alt)+'px';
+  d.style.width=Math.max(bb.width,200)+'px';
+  d.style.left=Math.round(Math.min(bb.left,fin.right-Math.max(bb.width,200)-MARG))+'px';
+  d.style.top=Math.round(top)+'px';
   d.addEventListener('mousedown',e=>e.preventDefault());
   d.addEventListener('click',e=>{
     const v=e.target.closest('.nvoce'); if(!v) return;
@@ -3679,10 +3708,12 @@ function apriCasse(b){
     syncLine(sel,true);
   });
 }
-/* un tocco fuori chiude l'elenco */
+/* un tocco fuori chiude l'elenco · e anche lo scorrimento, perche' l'elenco
+   e' appeso allo schermo e resterebbe fermo mentre la riga se ne va */
 document.addEventListener('pointerdown',e=>{
   if(!e.target?.closest?.('.fdrop,.l-fundbtn')) chiudiCasse();
 },true);
+document.addEventListener('scroll',()=>chiudiCasse(),true);
 function syncLine(sel,dallUtente){
   const riga=sel.closest('.line');
   pittaCassa(riga);
