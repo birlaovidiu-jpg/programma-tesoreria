@@ -2232,7 +2232,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='12.1', VERSIONE_DATA='6 settembre 2026';
+const VERSIONE='12.2', VERSIONE_DATA='6 settembre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -3446,6 +3446,26 @@ function addLine(l={}){
   if(iniz.length) d.querySelector('.l-mese').dataset.scelto='1';
   syncLine(d.querySelector('.l-fund'));
   calcTotal(); aggiornaBlocco();
+  /* la riga appena aggiunta si deve vedere TUTTA: con «+ Aggiungi riga»
+     nasceva in fondo, mezza nascosta sotto la barra di «Conferma ricevuta».
+     Quando invece si sta riaprendo una ricevuta già scritta, le righe si
+     rimettono una per una e la finestra non deve saltare: si scorre solo se
+     la riga è nuova, cioè se addLine è stata chiamata senza dati. */
+  if(!arguments.length) mostraRiga(d);
+}
+/* ---------- PORTA LA RIGA TUTTA DENTRO LA FINESTRA ----------
+   Il corpo della finestra scorre e finisce dove comincia la barra dei
+   pulsanti: quello che sta più giù è tagliato. Qui si guarda dove sta
+   davvero la riga e si scorre IL MINIMO che serve perché si veda intera,
+   con un dito d'aria sotto — non si salta in fondo e non si perde il posto.
+   `alto` serve quando si torna su una riga più in alto di quella che si
+   vede: si scorre indietro invece che avanti. */
+function mostraRiga(riga){
+  const corpo=riga?.closest?.('.sheet-body'); if(!corpo) return;
+  const r=riga.getBoundingClientRect(); if(!r.height) return;   /* finestra chiusa */
+  const c=corpo.getBoundingClientRect(), aria=10;
+  if(r.bottom>c.bottom-aria)      corpo.scrollTop+=r.bottom-c.bottom+aria;
+  else if(r.top<c.top+aria)       corpo.scrollTop-=c.top+aria-r.top;
 }
 function syncLine(sel){
   const riga=sel.closest('.line');
@@ -17375,6 +17395,17 @@ function svuotaCerca(id){
 }
 /* la ✕ si accende e si spegne da sola, ovunque */
 document.addEventListener('input',e=>{ if(e.target?.closest?.('.cercabox')) pieno(e.target) },true);
+/* LA RIGA SU CUI SI STA SCRIVENDO SI VEDE SEMPRE TUTTA.
+   Non basta farlo quando la riga nasce: si torna anche su una riga di prima,
+   e su iPad la tastiera si apre DOPO il tocco e si mangia mezza finestra —
+   quello che era visibile un attimo prima non lo è più. Percio' si guarda
+   subito e si riguarda dopo mezzo secondo, quando la tastiera ha finito di
+   salire e la finestra si è già accorciata da sé. */
+document.addEventListener('focusin',e=>{
+  const riga=e.target?.closest?.('#lines .line'); if(!riga) return;
+  setTimeout(()=>mostraRiga(riga),0);
+  setTimeout(()=>mostraRiga(riga),420);
+});
 /* svuota le ricerche di una sezione o di una finestra, senza rilanciare
    niente: quando ci si torna il programma ridisegna da capo */
 function svuotaRicerche(ids){
