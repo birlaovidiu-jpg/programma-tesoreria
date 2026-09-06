@@ -2295,7 +2295,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='12.8', VERSIONE_DATA='6 settembre 2026';
+const VERSIONE='12.9', VERSIONE_DATA='6 settembre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -3659,6 +3659,18 @@ function apriCasse(b){
   d.style.left=b.offsetLeft+'px';
   d.style.top=(b.offsetTop+b.offsetHeight+4)+'px';
   d.style.width=Math.max(b.offsetWidth,180)+'px';
+  /* L'ELENCO SI DEVE VEDERE, NON BASTA APRIRLO.
+     Con la tastiera aperta restano poche dita di finestra: se la riga e' in
+     fondo, l'elenco nasceva tutto SOTTO il bordo — diciassette casse e
+     nemmeno una visibile. Allora si porta il pulsante in cima al corpo, che
+     e' la parte che scorre, e all'elenco si da' l'altezza che resta davvero,
+     misurata adesso. Stessa cura della tendina dei nomi. */
+  const corpo=riga.closest('.sheet-body');
+  if(corpo){
+    corpo.scrollTop+=b.getBoundingClientRect().top-corpo.getBoundingClientRect().top-6;
+    const spazio=corpo.getBoundingClientRect().bottom-d.getBoundingClientRect().top-10;
+    d.style.maxHeight=Math.max(114,Math.floor(spazio))+'px';
+  }
   d.addEventListener('mousedown',e=>e.preventDefault());
   d.addEventListener('click',e=>{
     const v=e.target.closest('.nvoce'); if(!v) return;
@@ -3666,7 +3678,6 @@ function apriCasse(b){
     chiudiCasse();
     syncLine(sel,true);
   });
-  mostraRiga(riga);
 }
 /* un tocco fuori chiude l'elenco */
 document.addEventListener('pointerdown',e=>{
