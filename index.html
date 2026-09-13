@@ -2322,7 +2322,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='13.5', VERSIONE_DATA='11 settembre 2026';
+const VERSIONE='13.6', VERSIONE_DATA='13 settembre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -3774,7 +3774,7 @@ function apriCasse(b){
 document.addEventListener('pointerdown',e=>{
   if(!e.target?.closest?.('.fdrop,.l-fundbtn')) chiudiCasse();
 },true);
-document.addEventListener('scroll',()=>chiudiCasse(),true);
+document.addEventListener('scroll',e=>{ if(!e.target?.closest?.('.fdrop')) chiudiCasse() },true);
 function syncLine(sel,dallUtente){
   const riga=sel.closest('.line');
   pittaCassa(riga);
@@ -4852,7 +4852,7 @@ function viewReceipt(id){
      Quello che vedi qui è esattamente quello che esce dalla stampante
      e quello che parte come allegato: è la stessa immagine. */
   let foglio;
-  try{ foglio=`<img class="a5img" alt="Ricevuta ${esc(r.number)}" src="${drawReceiptCanvas(r).toDataURL('image/jpeg',.97)}">` }
+  try{ foglio=`<img class="a5img" alt="Ricevuta ${esc(r.number)}" src="${drawReceiptCanvas(r).toDataURL('image/jpeg',1)}">` }
   catch(e){ console.error(e); foglio=a5Html(r) }
   /* gli allegati NON sono un dettaglio: chi apre la ricevuta li deve vedere
      e li deve poter riaprire. Prima non comparivano da nessuna parte e
@@ -4869,6 +4869,7 @@ function viewReceipt(id){
        </div>`
     : '';
   $('a5Host').innerHTML=banner+hist+att+foglio;
+  $('a5Host').closest('.sheet-body').scrollTop=0;
 
   /* «Chiudi» è ROSSO PIENO e sta per primo: è il pulsante che si cerca più
      spesso e si deve trovare senza leggere. Di conseguenza «Elimina» non può
@@ -5057,7 +5058,7 @@ function stampaRicevuta(r){
      il formato carta nella finestra di stampa, in «Altre impostazioni».
      Chi vuole il foglio compatto senza pensarci usa 📲 Condividi, che fa il
      PDF con la misura già dentro. */
-  printImage(c.toDataURL('image/jpeg',.97),+(c.width/RPX).toFixed(1),+(c.height/RPX).toFixed(1),nome);
+  printImage(c.toDataURL('image/jpeg',1),+(c.width/RPX).toFixed(1),+(c.height/RPX).toFixed(1),nome);
 }
 function printReceipt(){
   stampaRicevuta(state.receipts.find(x=>x.id===viewId));
@@ -5410,7 +5411,7 @@ function pdfB64(obj){
   let bin=''; for(let i=0;i<b.length;i+=8192) bin+=String.fromCharCode.apply(null,b.subarray(i,i+8192));
   return btoa(bin);
 }
-function pdfFromPages(pages,quality=.96,dati=null){
+function pdfFromPages(pages,quality=1,dati=null){
   const imgs=pages.map(p=>{
     const bin=atob(p.canvas.toDataURL('image/jpeg',quality).split(',')[1]);
     return {bin,w:p.canvas.width,h:p.canvas.height,W:+(p.wmm*MM2PT).toFixed(2),H:+(p.hmm*MM2PT).toFixed(2)};
@@ -5450,7 +5451,7 @@ function pdfFromPages(pages,quality=.96,dati=null){
 }
 function receiptPdf(r){
   const c=drawReceiptCanvas(r);
-  return pdfFromPages([{canvas:c,wmm:+(c.width/RPX).toFixed(1),hmm:+(c.height/RPX).toFixed(1)}],.97);
+  return pdfFromPages([{canvas:c,wmm:+(c.width/RPX).toFixed(1),hmm:+(c.height/RPX).toFixed(1)}],1);
 }
 /* Si condivide SOLO il PDF: niente testo nel messaggio, niente riepilogo.
    Chi riceve trova un allegato e basta, e il testo lo scrive l'utente. */
@@ -6355,14 +6356,14 @@ function contribPresent(){
 }
 function contribPdf(){
   try{
-    const blob=inAltaQualita(()=>pdfFromPages(contribPages().map(c=>({canvas:c,wmm:297,hmm:167.1})),.97));
+    const blob=inAltaQualita(()=>pdfFromPages(contribPages().map(c=>({canvas:c,wmm:297,hmm:167.1})),1));
     saveFile(new File([blob],`Contributo_${state.settings.church.replace(/\s+/g,'_')}_${$('cYear').value}.pdf`,{type:'application/pdf'}));
   }catch(e){ console.error(e); toast('Non riesco a creare il PDF') }
 }
 async function contribShare(){
   let file;
   try{
-    const blob=inAltaQualita(()=>pdfFromPages(contribPages().map(c=>({canvas:c,wmm:297,hmm:167.1})),.97));
+    const blob=inAltaQualita(()=>pdfFromPages(contribPages().map(c=>({canvas:c,wmm:297,hmm:167.1})),1));
     file=new File([blob],`Contributo_${state.settings.church.replace(/\s+/g,'_')}_${$('cYear').value}.pdf`,{type:'application/pdf'});
   }catch(e){ console.error(e); toast('Non riesco a creare il PDF'); return }
   const text=`${state.settings.church}\nContributo Chiesa ${$('cYear').value}`;
@@ -7693,7 +7694,7 @@ function fieldReportPdf(d,notes,sent){
     x.textAlign='left';
   });
   /* il foglio è finito · dentro al file ci va anche il rapporto in chiaro */
-  return pdfFromPages(pages.map(q=>({canvas:q.c,wmm:210,hmm:297})),.96,datiPerIlCampo(d,notes,sent,s));
+  return pdfFromPages(pages.map(q=>({canvas:q.c,wmm:210,hmm:297})),1,datiPerIlCampo(d,notes,sent,s));
 }
 
 /* --- elenco ricevute di una persona: PDF e Excel --- */
@@ -8411,7 +8412,7 @@ function deckGo(step){
 }
 function closeDeck(){$('deck').classList.remove('show')}
 function churchSlidesPdf(){
-  return inAltaQualita(()=>pdfFromPages(slideSet().map(c=>({canvas:c,wmm:338.7,hmm:190.5})),.96));
+  return inAltaQualita(()=>pdfFromPages(slideSet().map(c=>({canvas:c,wmm:338.7,hmm:190.5})),1));
 }
 function churchFileName(){return `Rapporto_${state.settings.church.replace(/\s+/g,'_')}_${chLabel().replace(/[^\w]+/g,'_')}`}
 function churchPdf(){
@@ -10031,7 +10032,7 @@ async function assetsPdf(){
   if(!assetList().length){toast('Non c\'è nessun bene da stampare');return}
   await caricaFotoBeni();          /* senza questo le foto uscirebbero bianche */
   let blob;
-  try{ blob=pdfFromPages(assetsPages().map(c=>({canvas:c,wmm:210,hmm:297})),.96) }
+  try{ blob=pdfFromPages(assetsPages().map(c=>({canvas:c,wmm:210,hmm:297})),1) }
   catch(e){ console.error(e); toast('Non riesco a creare il PDF'); return }
   /* come ogni altro documento: si chiede DOVE salvarlo, non si apre e basta */
   saveFile(new File([blob],`Beni_${state.settings.church.replace(/\s+/g,'_')}_${today()}.pdf`,{type:'application/pdf'}));
@@ -10168,7 +10169,7 @@ function anagraficaPdf(){
   const tot=ANACAT.filter(([g])=>anaPdfSel[g]).reduce((s,[g])=>s+anaPdfGruppo(g).length,0);
   if(!tot){ toast('Spunta almeno una categoria'); return }
   let blob;
-  try{ blob=pdfFromPages(anagraficaPages().map(c=>({canvas:c,wmm:210,hmm:297})),.96) }
+  try{ blob=pdfFromPages(anagraficaPages().map(c=>({canvas:c,wmm:210,hmm:297})),1) }
   catch(e){ console.error(e); toast('Non riesco a creare il PDF'); return }
   const f=new File([blob],`Anagrafica_${state.settings.church.replace(/\s+/g,'_')}_${today()}.pdf`,
     {type:'application/pdf'});
@@ -14922,7 +14923,7 @@ function apriRicevutaArchivio(i){
   const a=archAperto; if(!a) return;
   const r=(a.receipts||[]).slice().sort(cmpNum)[i]; if(!r) return;
   let img='';
-  try{ img=`<img class="a5img" alt="Ricevuta ${esc(r.number)}" src="${drawReceiptCanvas(r).toDataURL('image/jpeg',.97)}">` }
+  try{ img=`<img class="a5img" alt="Ricevuta ${esc(r.number)}" src="${drawReceiptCanvas(r).toDataURL('image/jpeg',1)}">` }
   catch(e){ console.error(e); img=a5Html(r) }
   $('mArchTitle').textContent=`Ricevuta ${r.number}`;
   $('mArchSub').textContent=`${r.type} · ${fmtDate(r.date)} · ${euro(r.total)} · anno archiviato`;
