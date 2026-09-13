@@ -2325,7 +2325,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='13.7', VERSIONE_DATA='13 settembre 2026';
+const VERSIONE='13.8', VERSIONE_DATA='13 settembre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -3389,39 +3389,61 @@ function ricevutePagine(){
   const s=state.settings, pages=[];
   const periodo=from&&to?`Dal ${fmtDate(from)} al ${fmtDate(to)}`
     :from?`Da ${fmtDate(from)}`:to?`Fino al ${fmtDate(to)}`:'Tutto il periodo';
+  const sottotitolo=filtro?`${periodo} · ${filtro}`:periodo;
   let p=newPage();
-  const band=()=>pgBand(p,'Elenco ricevute',s.church,periodo,'#7d9fc4','#2c5a86');
+  const band=()=>pgBand(p,'Elenco ricevute',s.church,sottotitolo,'#7d9fc4','#2c5a86');
   band(); pages.push(p);
   pgCards(p,[
     {t:'Ricevute',v:String(rows.length),bg:'#eef1f7',color:'#41546b'},
-    {t:'Entrate'+(filtro?' · '+filtro:''),v:euro(tIn),bg:'#e7f4ec',color:'#0a5c37'},
-    {t:'Uscite'+(filtro?' · '+filtro:''),v:euro(tOut),bg:'#fceceb',color:'#8f1f2a'},
-    {t:filtro?'Totale '+filtro:'Saldo periodo',v:euro(tIn-tOut),bg:'#e9f1fb',color:'#2c5a86'}
+    {t:'Entrate',v:euro(tIn),bg:'#e7f4ec',color:'#0a5c37'},
+    {t:'Uscite',v:euro(tOut),bg:'#fceceb',color:'#8f1f2a'},
+    {t:'Saldo',v:euro(tIn-tOut),bg:'#e9f1fb',color:'#2c5a86'}
   ]);
-  if(filtro){
-    p.x.fillStyle='#6b7787'; p.x.font=FT(400,9);
-    p.x.fillText(`Stai guardando solo la ${filtro}: ogni importo qui sotto è solo la sua parte della ricevuta.`,p.M,p.y);
-    p.y+=Math.round(7*PK);
-  }
   pgH(p,'Ricevute','#2c5a86');
+
+  /* una riga per ogni RIGA di ricevuta che passa il filtro — non una per
+     ricevuta: così la cassa che si vede è sempre una sola, quella cercata,
+     e non trascina dentro le altre casse della stessa ricevuta. */
+  const righe=[];
+  rows.forEach(r=>r.lines.filter(keep).forEach(l=>righe.push({r,l})));
+
+  const rh=Math.round(8.9*PK), pad=Math.round(3*PK);
+  const cassaW=Math.round(38*PK), importoW=Math.round(30*PK);
   const fine=()=>p.H-Math.round(40*PK);
   const salta=h=>{ if(p.y+h>fine()){ p=newPage(); band(); pages.push(p) } };
-  const push=r=>{ salta(Math.round(10.5*PK)); pgTable(p,[r]); p.y-=Math.round(5*PK) };
-  push({head:1,l:'Ricevuta',r:'Importo'});
-  rows.forEach(r=>{
-    const fu=[...new Set(r.lines.map(l=>l.fund))].join(', ');
-    const bo=[...new Set(r.lines.map(l=>l.box))].join(', ');
-    const de=[...new Set(r.lines.map(l=>l.dest))].filter(Boolean).join('/');
-    const voce=`${r.number}  ·  ${fmtDate(r.date)}  ·  ${r.type}  ·  ${r.name||'—'}  —  ${fu}${bo?' · '+bo:''}${de?' · '+de:''}${r.status==='void'?'  ·  ANNULLATA':''}`;
-    const importo=filtro?r.lines.filter(keep).reduce((s,l)=>s+(+l.amount||0),0):r.total;
-    salta(pgWrapH(p,voce,{size:9.5}));
-    pgWrap(p,voce,euro(importo),{size:9.5,zebra:true,weight:600,
-      color:r.status==='void'?'#9aa4b1':'#22303f',
-      rcolor:r.status==='void'?'#9aa4b1':(r.type==='Entrata'?'#0a5c37':'#8f1f2a'),rweight:700});
+  const testa=()=>{
+    const x=p.x, w=p.W-2*p.M, cassaX=p.W-p.M-importoW-cassaW;
+    x.fillStyle='#eceff3'; x.fillRect(p.M,p.y,w,rh);
+    x.fillStyle='#41546b'; x.font=FT(700,9);
+    x.fillText('RICEVUTA',p.M+pad,p.y+rh*.66);
+    x.fillText('CASSA',cassaX+pad,p.y+rh*.66);
+    x.textAlign='right'; x.fillText('IMPORTO',p.W-p.M-pad,p.y+rh*.66); x.textAlign='left';
+    p.y+=rh;
+  };
+  salta(rh); testa();
+  righe.forEach(({r,l},i)=>{
+    salta(rh);
+    const x=p.x, w=p.W-2*p.M, cassaX=p.W-p.M-importoW-cassaW, voided=r.status==='void';
+    if(i%2){ x.fillStyle='#fafbfc'; x.fillRect(p.M,p.y,w,rh) }
+    x.fillStyle=voided?'#9aa4b1':'#22303f'; x.font=FT(600,10);
+    clip(x,`${r.number}  ·  ${fmtDate(r.date)}  ·  ${r.name||'—'}`,p.M+pad,p.y+rh*.68,cassaX-p.M-pad*2);
+    x.fillStyle=voided?'#9aa4b1':'#584ab5'; x.font=FT(400,9.5);
+    clip(x,l.fund,cassaX+pad,p.y+rh*.68,cassaW-pad*2);
+    x.fillStyle=voided?'#9aa4b1':(r.type==='Entrata'?'#0a5c37':'#8f1f2a'); x.font=FT(700,10.5); x.textAlign='right';
+    x.fillText(euro(l.amount),p.W-p.M-pad,p.y+rh*.68); x.textAlign='left';
+    x.strokeStyle='#dde3e9'; x.lineWidth=1;
+    x.beginPath(); x.moveTo(p.M,p.y+rh); x.lineTo(p.W-p.M,p.y+rh); x.stroke();
+    p.y+=rh;
   });
-  if(!rows.length) push({l:'Nessuna ricevuta trovata con questi filtri',r:euro(0)});
+  if(!righe.length){
+    salta(rh);
+    p.x.fillStyle='#8a96a3'; p.x.font=FT(400,10);
+    p.x.fillText('Nessuna ricevuta trovata con questi filtri',p.M+pad,p.y+rh*.68);
+    p.y+=rh;
+  }
+  p.y+=Math.round(9*PK);
   salta(Math.round(14*PK));
-  push({tot:1,l:filtro?('Totale '+filtro).toUpperCase():'SALDO DEL PERIODO',r:euro(tIn-tOut),color:'#2c5a86'});
+  pgTable(p,[{tot:1,l:'SALDO',r:euro(tIn-tOut),color:'#2c5a86'}]);
   pgFoot(pages[pages.length-1],`Il tesoriere${s.treasurer?' — '+s.treasurer:''}`,`${s.church}\nStampato il ${fmtDate(today())}`);
   return pages;
 }
