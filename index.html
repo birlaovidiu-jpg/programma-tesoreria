@@ -1303,6 +1303,9 @@ html.tocco .line .l-fundbtn:disabled{background:#f2f4f7;color:var(--muted);curso
     <div class="toolbar">
       <button class="btn green sm" onclick="openReceipt('Entrata')">➕ Entrata</button>
       <button class="btn red sm" onclick="openReceipt('Uscita')">➖ Uscita</button>
+      <button class="btn light sm" onclick="ricevuteListaStampa()">🖨️ Stampa</button>
+      <button class="btn light sm" onclick="ricevuteListaPdf()">📄 PDF</button>
+      <button class="btn share sm" onclick="ricevuteListaCondividi()">📲 Condividi</button>
     </div>
   </div>
 
@@ -2322,7 +2325,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='13.6', VERSIONE_DATA='13 settembre 2026';
+const VERSIONE='13.7', VERSIONE_DATA='13 settembre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -2668,7 +2671,8 @@ const VALUTE={
   ARS:{sim:'AR$', nome:'Peso argentino',   flag:'🇦🇷', pre:true },
   RON:{sim:'lei', nome:'Leu',              flag:'🇷🇴', pre:false},
   BRL:{sim:'R$',  nome:'Real',             flag:'🇧🇷', pre:true },
-  GBP:{sim:'£',   nome:'Sterlina',         flag:'🇬🇧', pre:true }
+  GBP:{sim:'£',   nome:'Sterlina',         flag:'🇬🇧', pre:true },
+  CLP:{sim:'CL$', nome:'Peso cileno',      flag:'🇨🇱', pre:true }
 };
 const VALUTA_DEF='EUR';
 /* chi ha in memoria una moneta che non c'è più torna in euro, non a metà */
@@ -3362,6 +3366,89 @@ function renderReceipts(){
         filtro?euro(r.lines.filter(keep).reduce((s,l)=>s+(+l.amount||0),0)):euro(r.total)}</td>
       <td><button class="btn light sm" onclick="viewReceipt(${r.id})">Apri</button></td></tr>`;
   }).join('') : '<tr><td colspan="9" class="empty">Nessuna ricevuta trovata con questi filtri.</td></tr>';
+}
+
+/* ---------- STAMPA / PDF / CONDIVIDI DI QUELLO CHE SI VEDE IN RICEVUTE ----------
+   Stessa selezione di elencoRic — filtri compresi, «‹ ›» sfoglia lo stesso
+   elenco. Il foglio riusa il motore dei rapporti (newPage/pgBand/pgTable),
+   lo stesso del Campo e dell'estratto di una persona. */
+function ricevuteFiltroAttuale(){
+  const rows=elencoRic.map(id=>state.receipts.find(r=>r.id===id)).filter(Boolean);
+  const fund=$('fFund').value,box=$('fBox').value,dest=$('fDest').value;
+  const keep=l=>(!fund||l.fund===fund)&&(!box||l.box===box)&&(!dest||l.dest===dest);
+  let tIn=0,tOut=0;
+  rows.filter(r=>r.status!=='void').forEach(r=>{
+    const v=r.lines.filter(keep).reduce((s,l)=>s+(+l.amount||0),0);
+    if(r.type==='Entrata') tIn+=v; else tOut+=v;
+  });
+  const filtro=fund||box||dest||'';
+  return {rows,tIn,tOut,filtro,keep,from:$('fFrom').value,to:$('fTo').value};
+}
+function ricevutePagine(){
+  const {rows,tIn,tOut,filtro,keep,from,to}=ricevuteFiltroAttuale();
+  const s=state.settings, pages=[];
+  const periodo=from&&to?`Dal ${fmtDate(from)} al ${fmtDate(to)}`
+    :from?`Da ${fmtDate(from)}`:to?`Fino al ${fmtDate(to)}`:'Tutto il periodo';
+  let p=newPage();
+  const band=()=>pgBand(p,'Elenco ricevute',s.church,periodo,'#7d9fc4','#2c5a86');
+  band(); pages.push(p);
+  pgCards(p,[
+    {t:'Ricevute',v:String(rows.length),bg:'#eef1f7',color:'#41546b'},
+    {t:'Entrate'+(filtro?' · '+filtro:''),v:euro(tIn),bg:'#e7f4ec',color:'#0a5c37'},
+    {t:'Uscite'+(filtro?' · '+filtro:''),v:euro(tOut),bg:'#fceceb',color:'#8f1f2a'},
+    {t:filtro?'Totale '+filtro:'Saldo periodo',v:euro(tIn-tOut),bg:'#e9f1fb',color:'#2c5a86'}
+  ]);
+  if(filtro){
+    p.x.fillStyle='#6b7787'; p.x.font=FT(400,9);
+    p.x.fillText(`Stai guardando solo la ${filtro}: ogni importo qui sotto è solo la sua parte della ricevuta.`,p.M,p.y);
+    p.y+=Math.round(7*PK);
+  }
+  pgH(p,'Ricevute','#2c5a86');
+  const fine=()=>p.H-Math.round(40*PK);
+  const salta=h=>{ if(p.y+h>fine()){ p=newPage(); band(); pages.push(p) } };
+  const push=r=>{ salta(Math.round(10.5*PK)); pgTable(p,[r]); p.y-=Math.round(5*PK) };
+  push({head:1,l:'Ricevuta',r:'Importo'});
+  rows.forEach(r=>{
+    const fu=[...new Set(r.lines.map(l=>l.fund))].join(', ');
+    const bo=[...new Set(r.lines.map(l=>l.box))].join(', ');
+    const de=[...new Set(r.lines.map(l=>l.dest))].filter(Boolean).join('/');
+    const voce=`${r.number}  ·  ${fmtDate(r.date)}  ·  ${r.type}  ·  ${r.name||'—'}  —  ${fu}${bo?' · '+bo:''}${de?' · '+de:''}${r.status==='void'?'  ·  ANNULLATA':''}`;
+    const importo=filtro?r.lines.filter(keep).reduce((s,l)=>s+(+l.amount||0),0):r.total;
+    salta(pgWrapH(p,voce,{size:9.5}));
+    pgWrap(p,voce,euro(importo),{size:9.5,zebra:true,weight:600,
+      color:r.status==='void'?'#9aa4b1':'#22303f',
+      rcolor:r.status==='void'?'#9aa4b1':(r.type==='Entrata'?'#0a5c37':'#8f1f2a'),rweight:700});
+  });
+  if(!rows.length) push({l:'Nessuna ricevuta trovata con questi filtri',r:euro(0)});
+  salta(Math.round(14*PK));
+  push({tot:1,l:filtro?('Totale '+filtro).toUpperCase():'SALDO DEL PERIODO',r:euro(tIn-tOut),color:'#2c5a86'});
+  pgFoot(pages[pages.length-1],`Il tesoriere${s.treasurer?' — '+s.treasurer:''}`,`${s.church}\nStampato il ${fmtDate(today())}`);
+  return pages;
+}
+function ricevuteListaPdfBlob(){
+  return pdfFromPages(ricevutePagine().map(q=>({canvas:q.c,wmm:210,hmm:297})),1);
+}
+function ricevuteListaPdf(){
+  try{ saveFile(new File([ricevuteListaPdfBlob()],`Ricevute_${state.settings.church.replace(/\s+/g,'_')}_${today()}.pdf`,{type:'application/pdf'})) }
+  catch(e){ console.error(e); toast('Non riesco a creare il PDF') }
+}
+function ricevuteListaStampa(){
+  let pagine;
+  try{ pagine=ricevutePagine() }
+  catch(e){ console.error(e); toast('Non riesco a preparare la stampa'); return }
+  printImages(pagine.map(q=>q.c.toDataURL('image/jpeg',1)),210,297,'Elenco ricevute');
+}
+async function ricevuteListaCondividi(){
+  let file;
+  try{ file=new File([ricevuteListaPdfBlob()],`Ricevute_${state.settings.church.replace(/\s+/g,'_')}_${today()}.pdf`,{type:'application/pdf'}) }
+  catch(e){ console.error(e); toast('Non riesco a creare il PDF'); return }
+  const {rows,tIn,tOut}=ricevuteFiltroAttuale();
+  const text=`${state.settings.church}\nElenco ricevute\n${rows.length} ricevute · Saldo: ${euro(tIn-tOut)}`;
+  if(navigator.canShare?.({files:[file]})){
+    try{ await navigator.share({files:[file],title:'Elenco ricevute',text}); return }
+    catch(e){ if(e.name==='AbortError') return }
+  }
+  if(await saveFile(file)) toast('PDF salvato');
 }
 
 /* ---------- MODALE RICEVUTA ---------- */
@@ -5135,6 +5222,19 @@ function printImage(url,wmm,hmm,nome){
   im.onerror=()=>{ h.innerHTML=''; titoloRimetti(); toast('Non riesco a preparare la stampa') };
   h.appendChild(im);
   im.src=url;
+}
+function printImages(urls,wmm,hmm,nome){
+  $('pageStyle').textContent=`@page{size:${wmm}mm ${hmm}mm;margin:0}`;
+  const h=$('printHost'); h.innerHTML='';
+  let pronte=0;
+  const via=()=>{ titoloStampa(nome); window.print(); setTimeout(()=>h.innerHTML='',800) };
+  urls.forEach(u=>{
+    const im=new Image(); im.style.cssText='display:block';
+    im.onload=()=>{ if(++pronte===urls.length) via() };
+    im.onerror=()=>{ h.innerHTML=''; titoloRimetti(); toast('Non riesco a preparare la stampa') };
+    h.appendChild(im);
+    im.src=u;
+  });
 }
 function printNodes(html,size='A5 portrait',nome){
   $('pageStyle').textContent=`@page{size:${size};margin:0}`;
@@ -15409,7 +15509,7 @@ ro:{
 'Nessun deposito configurato.':'Niciun depozit configurat.',
 'Date scelte a mano':'Date alese de mână',
 /* i nomi delle monete */
-'Dollaro USA':'Dolar american','Dollaro canadese':'Dolar canadian','Peso argentino':'Peso argentinian','Leu':'Leu','Real':'Real brazilian','Sterlina':'Liră sterlină',
+'Dollaro USA':'Dolar american','Dollaro canadese':'Dolar canadian','Peso argentino':'Peso argentinian','Peso cileno':'Peso chilian','Leu':'Leu','Real':'Real brazilian','Sterlina':'Liră sterlină',
 'File → Esporta record → CSV':'Fișier → Exportă înregistrări → CSV',
 /* i documenti disegnati · diapositive, rapporto, registro dei beni */
 'Saldo della chiesa locale':'Soldul bisericii locale',
@@ -15700,7 +15800,7 @@ en:{
 'Nessun deposito configurato.':'No deposit set up.',
 'Date scelte a mano':'Dates chosen by hand',
 /* i nomi delle monete */
-'Dollaro USA':'US dollar','Dollaro canadese':'Canadian dollar','Peso argentino':'Argentine peso','Leu':'Romanian leu','Real':'Brazilian real','Sterlina':'Pound sterling',
+'Dollaro USA':'US dollar','Dollaro canadese':'Canadian dollar','Peso argentino':'Argentine peso','Peso cileno':'Chilean peso','Leu':'Romanian leu','Real':'Brazilian real','Sterlina':'Pound sterling',
 'File → Esporta record → CSV':'File → Export Records → CSV',
 /* i documenti disegnati · diapositive, rapporto, registro dei beni */
 'Saldo della chiesa locale':'Local church balance',
@@ -15988,7 +16088,7 @@ es:{
 'Nessun deposito configurato.':'Ningún depósito configurado.',
 'Date scelte a mano':'Fechas elegidas a mano',
 /* i nomi delle monete */
-'Dollaro USA':'Dólar estadounidense','Dollaro canadese':'Dólar canadiense','Peso argentino':'Peso argentino','Leu':'Leu rumano','Real':'Real brasileño','Sterlina':'Libra esterlina',
+'Dollaro USA':'Dólar estadounidense','Dollaro canadese':'Dólar canadiense','Peso argentino':'Peso argentino','Peso cileno':'Peso chileno','Leu':'Leu rumano','Real':'Real brasileño','Sterlina':'Libra esterlina',
 'File → Esporta record → CSV':'Archivo → Exportar registros → CSV',
 /* i documenti disegnati · diapositive, rapporto, registro dei beni */
 'Saldo della chiesa locale':'Saldo de la iglesia local',
@@ -16275,7 +16375,7 @@ pt:{
 'Nessun deposito configurato.':'Nenhum depósito configurado.',
 'Date scelte a mano':'Datas escolhidas à mão',
 /* i nomi delle monete */
-'Dollaro USA':'Dólar americano','Dollaro canadese':'Dólar canadiano','Peso argentino':'Peso argentino','Leu':'Leu romeno','Real':'Real brasileiro','Sterlina':'Libra esterlina',
+'Dollaro USA':'Dólar americano','Dollaro canadese':'Dólar canadiano','Peso argentino':'Peso argentino','Peso cileno':'Peso chileno','Leu':'Leu romeno','Real':'Real brasileiro','Sterlina':'Libra esterlina',
 'File → Esporta record → CSV':'Ficheiro → Exportar registos → CSV',
 /* i documenti disegnati · diapositive, rapporto, registro dei beni */
 'Saldo della chiesa locale':'Saldo da igreja local',
@@ -19096,7 +19196,7 @@ function selfTest(){
     ok('lingue · t() traduce', t('Ricevute')!=='Ricevute'||lingua()==='it');
 
     /* ---- la moneta: il simbolo cambia, il numero resta all'italiana ---- */
-    ok('moneta · sette monete', Object.keys(VALUTE).join(' ')==='EUR USD CAD ARS RON BRL GBP',
+    ok('moneta · otto monete', Object.keys(VALUTE).join(' ')==='EUR USD CAD ARS RON BRL GBP CLP',
        Object.keys(VALUTE).join(' '));
     state.settings.valuta='EUR';
     ok('moneta · euro esattamente come prima',
@@ -19120,6 +19220,10 @@ function selfTest(){
     state.settings.valuta='GBP';
     ok('moneta · sterlina', euro(1234.5)==='£\u00a01.234,50'&&euroC(25)==='£25',
        euro(1234.5)+' / '+euroC(25));
+    state.settings.valuta='CLP';
+    ok('moneta · peso cileno', euro(1234.5)==='CL$\u00a01.234,50'&&euroC(25)==='CL$25',
+       euro(1234.5)+' / '+euroC(25));
+    state.settings.valuta='GBP';
     ok('moneta · le scritte cambiano', vs('Quota mensile €')==='Quota mensile £',
        vs('Quota mensile €'));
     ok('moneta · il foglio Excel segue', XLSTYLES.replace('€',SIM()).includes('&quot;£&quot;'));
