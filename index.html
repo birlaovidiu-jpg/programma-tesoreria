@@ -210,7 +210,14 @@ table{border-collapse:collapse;width:100%}
    Le date stavano su una riga loro, larghe mezza pagina per una: due caselle
    che si scrivono una volta l'anno si prendevano lo spazio dove ci stanno
    quattro ricevute. Adesso sono strette e in fila con le pillole. */
-.periodo{display:flex;flex-wrap:wrap;align-items:center;gap:7px}
+.periodo{display:flex;flex-wrap:wrap;align-items:center;gap:7px;position:relative}
+/* il quadratino dei mesi che si apre sotto «Mese»: i mesi scelti restano viola */
+.ric-mesi{position:absolute;top:100%;left:0;z-index:30;margin-top:6px;width:280px;max-width:calc(100vw - 32px);
+  display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:10px;background:#fff;
+  border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.16)}
+.ric-mesi[hidden]{display:none}
+.ric-mesi button{border:1px solid var(--line);background:#fff;border-radius:10px;padding:10px 0;font-size:13.5px;font-weight:600;cursor:pointer;color:var(--ink)}
+.ric-mesi button.on{background:var(--violet);color:#fff;border-color:var(--violet)}
 /* I TASTI DEL PERIODO PRENDONO TUTTA LA RIGA CHE AVANZA.
    Sono i piu' usati della ricerca e si devono centrare col dito senza mirare,
    percio' crescono fino a riempire la riga. Ma le due date restano LI', sulla
@@ -1343,7 +1350,7 @@ html.tocco .line .l-fundbtn:disabled{background:#f2f4f7;color:var(--muted);curso
            si accorcia e l'elenco delle ricevute comincia più in alto -->
       <div class="periodo">
         <div class="pills" id="periodPills">
-          <button data-p="month" onclick="setPeriod('month')">Mese</button>
+          <button data-p="month" onclick="apriMesiRic(event)">Mese</button>
           <button data-p="q1" onclick="setPeriod('q1')">1° trim.</button>
           <button data-p="q2" onclick="setPeriod('q2')">2° trim.</button>
           <button data-p="q3" onclick="setPeriod('q3')">3° trim.</button>
@@ -1351,6 +1358,20 @@ html.tocco .line .l-fundbtn:disabled{background:#f2f4f7;color:var(--muted);curso
           <button data-p="year" onclick="setPeriod('year')">Anno</button>
           <button data-p="biennium" onclick="setPeriod('biennium')">Biennio</button>
           <button data-p="all" onclick="setPeriod('all')">Tutto</button>
+        </div>
+        <div class="ric-mesi" id="ricMesiPop" hidden onclick="event.stopPropagation()">
+          <button data-m="0" onclick="toggleMeseRic(0)">Gen</button>
+          <button data-m="1" onclick="toggleMeseRic(1)">Feb</button>
+          <button data-m="2" onclick="toggleMeseRic(2)">Mar</button>
+          <button data-m="3" onclick="toggleMeseRic(3)">Apr</button>
+          <button data-m="4" onclick="toggleMeseRic(4)">Mag</button>
+          <button data-m="5" onclick="toggleMeseRic(5)">Giu</button>
+          <button data-m="6" onclick="toggleMeseRic(6)">Lug</button>
+          <button data-m="7" onclick="toggleMeseRic(7)">Ago</button>
+          <button data-m="8" onclick="toggleMeseRic(8)">Set</button>
+          <button data-m="9" onclick="toggleMeseRic(9)">Ott</button>
+          <button data-m="10" onclick="toggleMeseRic(10)">Nov</button>
+          <button data-m="11" onclick="toggleMeseRic(11)">Dic</button>
         </div>
         <label class="dal"><span>Dal</span><input id="fFrom" type="date" onchange="markCustom()"></label>
         <label class="dal"><span>Al</span><input id="fTo" type="date" onchange="markCustom()"></label>
@@ -2325,7 +2346,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='13.8', VERSIONE_DATA='13 settembre 2026';
+const VERSIONE='14.0', VERSIONE_DATA='24 settembre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -3130,21 +3151,38 @@ function paintRapportoAlert(){
 /* ---------- RICEVUTE / RICERCA ---------- */
 let fType='', fPeriod='year';
 function setType(t){fType=t;[0,1,2].forEach(i=>$('fType'+i).classList.toggle('active',['','Entrata','Uscita'][i]===t));renderReceipts()}
-function markCustom(){fPeriod='custom';paintPills();renderReceipts()}
+function markCustom(){fPeriod='custom';fMesi.clear();paintMesiRic();$('ricMesiPop').hidden=true;paintPills();renderReceipts()}
+/* MESE: si apre un quadratino con i dodici mesi dell'anno contabile; se ne
+   sceglie uno o più di uno e la ricerca si fa solo su quelli (anno in corso). I mesi scelti
+   restano viola. Aprendolo la prima volta è già acceso il mese corrente,
+   come faceva prima il pulsante; spegnendoli tutti si torna all'anno intero. */
+let fMesi=new Set();
+function paintMesiRic(){document.querySelectorAll('#ricMesiPop button').forEach(b=>b.classList.toggle('on',fMesi.has(+b.dataset.m)))}
+function apriMesiRic(ev){
+  ev.stopPropagation();
+  const pop=$('ricMesiPop');
+  if(!pop.hidden){pop.hidden=true;return}
+  if(!fMesi.size) fMesi.add(new Date().getMonth());
+  paintMesiRic(); pop.hidden=false; setPeriod('month');
+}
+function toggleMeseRic(i){ if(fMesi.has(i)) fMesi.delete(i); else fMesi.add(i); paintMesiRic(); setPeriod(fMesi.size?'month':'year') }
+document.addEventListener('click',()=>{ const p=$('ricMesiPop'); if(p) p.hidden=true });
 function paintPills(){document.querySelectorAll('#periodPills button').forEach(b=>b.classList.toggle('active',b.dataset.p===fPeriod))}
 /* un periodo non va mai oltre il giorno in cui si cerca: se la fine è nel
    futuro si taglia a oggi. Uguale a come è in SDARM Italia. */
 const finoAOggi=t=>{ const o=today(); return t>o?o:t };
 function setPeriod(p){
+  if(p!=='month'){ fMesi.clear(); paintMesiRic(); $('ricMesiPop').hidden=true }
   fPeriod=p;paintPills();
   const n=new Date(),y=n.getFullYear(),m=n.getMonth(),iso=d=>{const z=new Date(d.getTime()-d.getTimezoneOffset()*6e4);return z.toISOString().slice(0,10)};
   let f='',t='';
   const ya=Number(state.settings.year)||y;
-  if(p==='month'){f=iso(new Date(y,m,1));t=iso(new Date(y,m+1,0))}
+  /* mesi e trimestri sono sempre quelli dell'anno in corso */
+  if(p==='month'){const ms=[...fMesi].sort((a,b)=>a-b);f=iso(new Date(y,ms[0],1));t=iso(new Date(y,ms[ms.length-1]+1,0))}
   else if(p==='quarter'){const q=Math.floor(m/3)*3;f=iso(new Date(y,q,1));t=iso(new Date(y,q+3,0))}
   /* i quattro trimestri dell'anno contabile, uno per pulsante: prima bisognava
      scegliere «Personalizzato» e scrivere le due date a mano */
-  else if(/^q[1-4]$/.test(p)){const q=(Number(p[1])-1)*3;f=iso(new Date(ya,q,1));t=iso(new Date(ya,q+3,0))}
+  else if(/^q[1-4]$/.test(p)){const q=(Number(p[1])-1)*3;f=iso(new Date(y,q,1));t=iso(new Date(y,q+3,0))}
   /* anno e biennio si fermano a OGGI: cercare in un anno ancora in corso e
      vedersi scritto «al 31 dicembre» fa sembrare che manchino delle ricevute */
   else if(p==='year'){f=`${ya}-01-01`;t=finoAOggi(`${ya}-12-31`)}
@@ -3300,6 +3338,8 @@ function renderReceipts(){
     if(fType&&r.type!==fType) return false;
     if(from&&r.date<from) return false;
     if(to&&r.date>to) return false;
+    /* mesi scelti anche non vicini (es. gennaio e marzo): quelli in mezzo restano fuori */
+    if(fPeriod==='month'&&fMesi.size&&!fMesi.has(Number(String(r.date).slice(5,7))-1)) return false;
     /* si scrive a mano: basta che il nome CONTENGA quello che sto scrivendo,
        accenti e maiuscole non contano. Scegliendo una voce dall'elenco il
        nome ci finisce intero e resta solo quella persona. */
@@ -3389,7 +3429,10 @@ function ricevutePagine(){
   const s=state.settings, pages=[];
   const periodo=from&&to?`Dal ${fmtDate(from)} al ${fmtDate(to)}`
     :from?`Da ${fmtDate(from)}`:to?`Fino al ${fmtDate(to)}`:'Tutto il periodo';
-  const sottotitolo=filtro?`${periodo} · ${filtro}`:periodo;
+  /* con più mesi scelti si scrivono i mesi, non «dal primo all'ultimo» */
+  const periodoV=fPeriod==='month'&&fMesi.size
+    ?[...fMesi].sort((a,b)=>a-b).map(i=>meseM(i)).join(', ')+' '+from.slice(0,4):periodo;
+  const sottotitolo=filtro?`${periodoV} · ${filtro}`:periodoV;
   let p=newPage();
   const band=()=>pgBand(p,'Elenco ricevute',s.church,sottotitolo,'#7d9fc4','#2c5a86');
   band(); pages.push(p);
