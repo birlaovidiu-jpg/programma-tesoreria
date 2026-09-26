@@ -2322,7 +2322,9 @@ const DEFAULTS={
     /* la lingua del programma: italiano finché non sceglie altro */
     lang:'it',
     /* la moneta: euro finché non sceglie altra · le altre stanno in VALUTE */
-    valuta:'EUR'},
+    valuta:'EUR',
+    /* le casse locali SPENTE nel rapporto da presentare in chiesa */
+    chEscluse:[]},
   boxes:[{name:'Contanti'},{name:'Banca MPS'}],
   funds:[
     {name:'Decima',dest:'Campo'},{name:'Offerta Missionaria',dest:'Campo'},
@@ -2349,7 +2351,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='14.1', VERSIONE_DATA='26 settembre 2026';
+const VERSIONE='14.2', VERSIONE_DATA='26 settembre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -8097,18 +8099,21 @@ function chLabel(){
 /* LE CASSE LOCALI DA PRESENTARE. Si tiene l'elenco di quelle SPENTE, così
    una cassa locale nuova compare già accesa. Una cassa spenta non entra nel
    rapporto: né nelle entrate, né nelle uscite, né nei saldi. Accese
-   colorate, spente bianche. */
-let chEscluse=new Set();
-const chCassaOn=l=>!chEscluse.has(l.fund);
+   colorate, spente bianche. La scelta sta nelle impostazioni, così resta
+   uguale anche quando il programma si riapre, e viaggia con il backup. */
+const chSpente=()=>state.settings.chEscluse||[];
+const chCassaOn=l=>!chSpente().includes(l.fund);
 const chCasseLocali=()=>state.funds.filter(f=>f.dest==='Locale');
 function paintChCasse(){
   const box=$('chCasse'); if(!box) return;
   box.innerHTML=chCasseLocali().map((f,i)=>
-    `<button type="button" class="${chEscluse.has(f.name)?'':'on'}" onclick="toggleChCassa(${i})">${esc(tn(f.name))}</button>`).join('');
+    `<button type="button" class="${chSpente().includes(f.name)?'':'on'}" onclick="toggleChCassa(${i})">${esc(tn(f.name))}</button>`).join('');
 }
 function toggleChCassa(i){
   const f=chCasseLocali()[i]; if(!f) return;
-  chEscluse.has(f.name)?chEscluse.delete(f.name):chEscluse.add(f.name);
+  const lista=chSpente().slice(), k=lista.indexOf(f.name);
+  k>=0?lista.splice(k,1):lista.push(f.name);
+  state.settings.chEscluse=lista; persist();
   renderChurchPreview();
 }
 /* uscite: le voci piccole finiscono tutte in "Varie", come nel rapporto cartaceo */
