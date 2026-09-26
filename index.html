@@ -598,6 +598,7 @@ tr.voided td{opacity:.5;text-decoration:line-through}
 .pills{display:flex;gap:6px;flex-wrap:wrap}
 .pills button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:7px 13px;font-size:12.5px;cursor:pointer;font-weight:600}
 .pills button.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+.ch-casse button.on{background:var(--violet);color:#fff;border-color:var(--violet)}
 
 .sumbar{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:9px;margin:12px 0}
 .sumbar div{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px}
@@ -1494,6 +1495,8 @@ html.tocco .line .l-fundbtn:disabled{background:#f2f4f7;color:var(--muted);curso
       <div class="field"><label>Al</label><input id="chTo" type="date" onchange="markChCustom()"></div>
       <div class="field"><label>Raggruppa uscite sotto €</label><input id="chMin" inputmode="decimal" value="50" onchange="renderChurchPreview()"></div>
     </div>
+    <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:12px 0 6px">Casse locali da presentare</label>
+    <div class="pills ch-casse" id="chCasse"></div>
     <div id="chPreview" style="margin-top:12px"></div>
     <div class="toolbar" style="margin-top:12px">
       <button class="btn dark" onclick="openDeck()">▶️ Presenta a schermo intero</button>
@@ -2346,7 +2349,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='14.0', VERSIONE_DATA='24 settembre 2026';
+const VERSIONE='14.1', VERSIONE_DATA='26 settembre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -8091,6 +8094,23 @@ function chLabel(){
   if(chPeriod==='custom') return `${fmtDate($('chFrom').value)} — ${fmtDate($('chTo').value)}`;
   return $('chRef').selectedOptions[0]?.textContent||t('Periodo');
 }
+/* LE CASSE LOCALI DA PRESENTARE. Si tiene l'elenco di quelle SPENTE, così
+   una cassa locale nuova compare già accesa. Una cassa spenta non entra nel
+   rapporto: né nelle entrate, né nelle uscite, né nei saldi. Accese
+   colorate, spente bianche. */
+let chEscluse=new Set();
+const chCassaOn=l=>!chEscluse.has(l.fund);
+const chCasseLocali=()=>state.funds.filter(f=>f.dest==='Locale');
+function paintChCasse(){
+  const box=$('chCasse'); if(!box) return;
+  box.innerHTML=chCasseLocali().map((f,i)=>
+    `<button type="button" class="${chEscluse.has(f.name)?'':'on'}" onclick="toggleChCassa(${i})">${esc(tn(f.name))}</button>`).join('');
+}
+function toggleChCassa(i){
+  const f=chCasseLocali()[i]; if(!f) return;
+  chEscluse.has(f.name)?chEscluse.delete(f.name):chEscluse.add(f.name);
+  renderChurchPreview();
+}
 /* uscite: le voci piccole finiscono tutte in "Varie", come nel rapporto cartaceo */
 function churchData(){
   const f=$('chFrom').value,t=$('chTo').value;
@@ -8101,8 +8121,8 @@ function churchData(){
     const v=+l.amount||0;
     if(r.type==='Entrata'){
       if(l.dest==='Campo') campo[l.fund]=(campo[l.fund]||0)+v;
-      else locIn[l.fund]=(locIn[l.fund]||0)+v;
-    }else if(l.dest==='Locale'){
+      else if(chCassaOn(l)) locIn[l.fund]=(locIn[l.fund]||0)+v;
+    }else if(l.dest==='Locale'&&chCassaOn(l)){
       /* LE USCITE SI RAGGRUPPANO PER DESCRIZIONE, non per fornitore: vedi
          raggruppaUscite() qui sotto. Qui si mette da parte tutto quello che
          serve per scrivere poi la voce: quanto, che cosa e chi. */
@@ -8120,11 +8140,12 @@ function churchData(){
   const grouped=raggruppaUscite(locOut,min);
   const prev=f?prevDay(f):null;
   return {f,t,campo,locIn,locOut:grouped,label:chLabel(),
-    startBal:prev?localBalance(prev):0,endBal:localBalance(t||undefined),
+    startBal:prev?sumLines(l=>l.dest==='Locale'&&chCassaOn(l),prev):0,
+    endBal:sumLines(l=>l.dest==='Locale'&&chCassaOn(l),t||undefined),
     /* «end» è quello che c'è fisicamente nel deposito, «loc» soltanto la
        parte della chiesa locale: le diapositive usano «loc» */
     boxes:state.boxes.map(b=>({name:b.name,end:boxBalance(b.name,t||undefined),
-                               loc:boxLocalBalance(b.name,t||undefined)})),
+                               loc:sumLines(l=>l.box===b.name&&l.dest==='Locale'&&chCassaOn(l),t||undefined)})),
     field:fieldPending(t||undefined)};
 }
 /* ==========================================================
@@ -8224,6 +8245,7 @@ function tbl(map){
     ||'<tr><td>Nessun movimento</td><td class="amt">€ 0,00</td></tr>'};
 }
 function renderChurchPreview(){
+  paintChCasse();
   const d=churchData(),a=tbl(d.campo),b=tbl(d.locIn),c=tbl(d.locOut);
   $('chPreview').innerHTML=`<div class="sumbar" style="margin:0">
     <div><span>Per il Campo</span><b style="color:var(--violet)">${euro(a.tot)}</b></div>
@@ -15639,6 +15661,7 @@ ro:{
 'Vado avanti?':'Merg mai departe?',
 /* la finestra si traduce a pezzi e quella riga si spezza ai due punti */
 'come stavano quando è stato salvato':'cum erau când a fost salvat','ricevute, rapporti inviati, anagrafiche,':'chitanțe, rapoarte trimise, persoane,',
+'Casse locali da presentare':'Fonduri locale de prezentat',
 'Contributo Chiesa':'Contribuția bisericii','Anno da presentare':'Anul de prezentat','Quota mensile €':'Cota lunară €',
 'Cerca persona':'Caută persoana','Esente':'Scutit','Membro':'Membru','Ospite':'Oaspete',
 '🖥 Presentazione':'🖥 Prezentare','📄 Esporta PDF':'📄 Exportă PDF',
@@ -15930,6 +15953,7 @@ en:{
 'Vado avanti?':'Shall I go ahead?',
 /* la finestra si traduce a pezzi e quella riga si spezza ai due punti */
 'come stavano quando è stato salvato':'as they were when it was saved','ricevute, rapporti inviati, anagrafiche,':'receipts, sent reports, people,',
+'Casse locali da presentare':'Local funds to present',
 'Contributo Chiesa':'Church contribution','Anno da presentare':'Year to present','Quota mensile €':'Monthly quota €',
 'Cerca persona':'Search person','Esente':'Exempt','Membro':'Member','Ospite':'Guest',
 '🖥 Presentazione':'🖥 Presentation','📄 Esporta PDF':'📄 Export PDF',
@@ -16218,6 +16242,7 @@ es:{
 'Vado avanti?':'¿Sigo adelante?',
 /* la finestra si traduce a pezzi e quella riga si spezza ai due punti */
 'come stavano quando è stato salvato':'como estaban cuando se guardó','ricevute, rapporti inviati, anagrafiche,':'recibos, informes enviados, personas,',
+'Casse locali da presentare':'Fondos locales a presentar',
 'Contributo Chiesa':'Contribución de la iglesia','Anno da presentare':'Año que se presenta','Quota mensile €':'Cuota mensual €',
 'Cerca persona':'Buscar persona','Esente':'Exento','Membro':'Miembro','Ospite':'Invitado',
 '🖥 Presentazione':'🖥 Presentación','📄 Esporta PDF':'📄 Exportar PDF',
@@ -16505,6 +16530,7 @@ pt:{
 'Vado avanti?':'Continuo?',
 /* la finestra si traduce a pezzi e quella riga si spezza ai due punti */
 'come stavano quando è stato salvato':'como estavam quando foi guardado','ricevute, rapporti inviati, anagrafiche,':'recibos, relatórios enviados, pessoas,',
+'Casse locali da presentare':'Fundos locais a apresentar',
 'Contributo Chiesa':'Contribuição da igreja','Anno da presentare':'Ano a apresentar','Quota mensile €':'Quota mensal €',
 'Cerca persona':'Procurar pessoa','Esente':'Isento','Membro':'Membro','Ospite':'Visitante',
 '🖥 Presentazione':'🖥 Apresentação','📄 Esporta PDF':'📄 Exportar PDF',
