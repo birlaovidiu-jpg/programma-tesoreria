@@ -2372,7 +2372,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='14.7', VERSIONE_DATA='27 settembre 2026';
+const VERSIONE='14.8', VERSIONE_DATA='27 settembre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -6443,11 +6443,14 @@ function contribPage(people,pageIdx,pages,y,totals){
   /* barra dei totali */
   const BH=104, by=HH;
   x.fillStyle=CC.headBg; x.fillRect(0,by,CW,BH);
+  /* l'atteso dell'anno (regola sua, v14.8): lo stesso numero della tabella
+     sullo schermo — membri segnati, meno gli esenti, per i mesi dovuti */
   const items=[[euroC(rate()),t('Importo mensile')],
                [String(totals.people),t('Persone')],
-               [euroC(totals.total),t('Totale incassato')]];
+               [euroC(totals.total),t('Totale incassato')],
+               [euroC(totals.atteso),t("Atteso dell'anno")]];
   items.forEach(([v,l],i)=>{
-    const cx=CW/2+(i-1)*300;
+    const cx=CW/2+(i-(items.length-1)/2)*300;
     x.fillStyle=CC.gold; x.font=CSERIF(700,42); x.fillText(v,cx,by+52);
     x.fillStyle='rgba(244,239,226,.72)'; x.font=CSANS(600,17);
     x.fillText(l.toUpperCase(),cx,by+82);
@@ -6528,7 +6531,7 @@ function contribPages(){
      nella tabella sullo schermo. */
   /* chi si è trasferito, chi è stato escluso e chi è mancato non ci compare più */
   const people=contribPeople(y).filter(p=>!p.fuori&&(p.membro||p.paid>0));
-  const totals={people:people.length,total:people.reduce((s,p)=>s+p.total,0)};
+  const totals={people:people.length,total:people.reduce((s,p)=>s+p.total,0),atteso:attesoAnno()};
   const n=Math.max(1,Math.ceil(people.length/CROWS));
   return Array.from({length:n},(_,i)=>contribPage(people,i,n,y,totals));
 }
@@ -12725,7 +12728,7 @@ contributo:{t:'Contribuția Bisericii și lunile plătite',
  ['Lunile merg în șir','Dacă scrii o lună deja plătită, sau dacă sari una, programul <b>nu închide chitanța</b> și îți spune care e luna corectă. La fel dacă suma nu e cota × luni × persoane.',''],
  ['Poți bifa de mână','Dacă o chitanță veche nu numește luna, atinge căsuța și o pui tu.',''],
  ['<b>Scutit</b>','E pentru cine a fost scutit de biserică de la contribuție. Rândul devine chihlimbariu și <b>acea persoană iese din așteptatul anului</b>: dacă majoritatea a hotărât că nu trebuie să verse, banii aceia nu se pot aștepta. Ce a vărsat deja <b>rămâne socotit</b> în strâns: se scoate obligația, nu banii intrați.',''],
- ['Paginile de prezentat în biserică','<b>📄 Exportă PDF</b> face foaia cu <b>toți membrii</b>, unul câte unul, fie că au plătit sau nu, <b>plus oaspeții care au vărsat cel puțin o lună</b>.',''],
+ ['Paginile de prezentat în biserică','<b>📄 Exportă PDF</b> face foaia cu <b>toți membrii</b>, unul câte unul, fie că au plătit sau nu, <b>plus oaspeții care au vărsat cel puțin o lună</b>. Sus, lângă <b>totalul încasat</b>, este și <b>așteptatul pe an</b>.',''],
  ['<b>🖥 Prezentare</b>','Același tabel pe tot ecranul. <b>Numele sunt mari</b> dinadins, ca să se citească din ultima bancă: de aceea încap unsprezece rânduri pe pagină și paginile sunt mai multe.',''],
  ['<b>📲 Partajează</b>','Trimite PDF-ul cui ai nevoie, fără să treci prin fișiere.',''],
   ['Luna ți-o propune programul','Când pe un rând alegi fondul <b>Contribuția Bisericii</b>, lângă descriere apare o căsuță violet cu <b>luna pe care acea persoană trebuie să o plătească</b>: nu trebuie să ți-o amintești și nici să o cauți. Căsuța apare <b>numai pe chitanțele de intrare</b>: la ieșire nu e, fiindcă o cheltuială nu plătește luna nimănui.','Descrierea rămâne liberă pentru «+ Nume».'],
@@ -13193,7 +13196,7 @@ contributo:{t:'The Church Contribution and the months paid',
  ['The months go <b>in order</b>','If you write a month that is already paid, or skip one, the program <b>will not close the receipt</b> and tells you which month is the right one. The same if the amount does not match <b>rate × months × people</b>. That way the table fills with neither gaps nor duplicates.',''],
  ['You can tick by hand','If an old receipt does not name the month, tap the box and set it yourself.',''],
  ['<b>Exempt</b>','For someone the church has exempted from the contribution. The row turns amber and <b>that person drops out of the year\'s expected total</b>: if the congregation decided they do not have to pay, that money cannot be expected. What they have already paid <b>still counts</b> in what was collected: the obligation is removed, not the money that came in.',''],
- ['The pages you present in church','<b>📄 Export PDF</b> makes the sheet with <b>every member</b>, one by one, whether they have paid or not, <b>plus the guests who have paid at least one month</b>.',''],
+ ['The pages you present in church','<b>📄 Export PDF</b> makes the sheet with <b>every member</b>, one by one, whether they have paid or not, <b>plus the guests who have paid at least one month</b>. At the top, next to the <b>total collected</b>, there is also the <b>expected for the year</b>.',''],
  ['<b>🖥 Presentation</b>','The same table full screen. The <b>names are large</b> on purpose, to be read from the back pew: that is why eleven rows fit on a page and there is more than one page.',''],
  ['<b>📲 Share</b>','Send the PDF to whoever needs it, without going through files.',''],
   ['The program proposes the month','When you pick the <b>Church Contribution</b> fund on a line, a small violet box appears next to the description holding <b>the month that person owes</b>: you do not have to remember it or go looking for it. The box appears <b>on income receipts only</b>: on an expense it is not there, because an expense pays nobody\'s month.','The description stays free for the «+ Name».'],
@@ -13662,7 +13665,7 @@ contributo:{t:'La Contribución de Iglesia y los meses pagados',
  ['Los meses van <b>en orden</b>','Si escribes un mes ya pagado, o te saltas uno, el programa <b>no cierra el recibo</b> y te dice cuál es el mes correcto. Lo mismo si el importe no cuadra con <b>cuota × meses × personas</b>. Así la tabla no se llena ni de huecos ni de duplicados.',''],
  ['Puedes marcar a mano','Si un recibo antiguo no nombra el mes, toca la casilla y lo pones tú.',''],
  ['<b>Exento</b>','Para quien la iglesia ha eximido de la contribución. La fila se vuelve ámbar y <b>esa persona sale de lo esperado del año</b>: si la mayoría ha decidido que no debe aportar, ese dinero no se puede esperar. Lo que ya ha aportado <b>sigue contando</b> en lo recaudado: se quita la obligación, no el dinero que ha entrado.',''],
- ['Las páginas para presentar en la iglesia','<b>📄 Exportar PDF</b> hace la hoja con <b>todos los miembros</b>, uno por uno, hayan pagado o no, <b>más los invitados que han aportado al menos un mes</b>.',''],
+ ['Las páginas para presentar en la iglesia','<b>📄 Exportar PDF</b> hace la hoja con <b>todos los miembros</b>, uno por uno, hayan pagado o no, <b>más los invitados que han aportado al menos un mes</b>. Arriba, junto al <b>total cobrado</b>, está también lo <b>esperado del año</b>.',''],
  ['<b>🖥 Presentación</b>','La misma tabla a pantalla completa. Los <b>nombres son grandes</b> a propósito, para leerlos desde el último banco: por eso caben once filas por página y las páginas son varias.',''],
  ['<b>📲 Compartir</b>','Manda el PDF a quien te haga falta, sin pasar por los archivos.',''],
   ['El mes te lo propone el programa','Cuando en una línea eliges el fondo <b>Contribución de Iglesia</b>, junto a la descripción aparece una casilla violeta con <b>el mes que esa persona debe pagar</b>: no tienes que acordarte ni ir a buscarlo. La casilla aparece <b>solo en los recibos de ingreso</b>: en un gasto no está, porque un gasto no paga el mes de nadie.','La descripción queda libre para el «+ Nombre».'],
@@ -14130,7 +14133,7 @@ contributo:{t:'A Contribuição da Igreja e os meses pagos',
  ['Os meses vão <b>por ordem</b>','Se escreveres um mês já pago, ou saltares um, o programa <b>não fecha o recibo</b> e diz-te qual é o mês certo. O mesmo se o valor não bater com <b>quota × meses × pessoas</b>. Assim a tabela não se enche nem de buracos nem de repetidos.',''],
  ['Podes marcar à mão','Se um recibo antigo não nomear o mês, toca na caixa e pões-lo tu.',''],
  ['<b>Isento</b>','Para quem a igreja isentou da contribuição. A linha fica âmbar e <b>essa pessoa sai do esperado do ano</b>: se a maioria decidiu que não tem de pagar, esse dinheiro não se pode esperar. O que já pagou <b>continua contado</b> no arrecadado: tira-se a obrigação, não o dinheiro que entrou.',''],
- ['As páginas para apresentar na igreja','<b>📄 Exportar PDF</b> faz a folha com <b>todos os membros</b>, um a um, tenham pago ou não, <b>mais os visitantes que pagaram pelo menos um mês</b>.',''],
+ ['As páginas para apresentar na igreja','<b>📄 Exportar PDF</b> faz a folha com <b>todos os membros</b>, um a um, tenham pago ou não, <b>mais os visitantes que pagaram pelo menos um mês</b>. Em cima, ao lado do <b>total recebido</b>, está também o <b>esperado do ano</b>.',''],
  ['<b>🖥 Apresentação</b>','A mesma tabela em ecrã inteiro. Os <b>nomes são grandes</b> de propósito, para se lerem do último banco: por isso cabem onze linhas por página e as páginas são mais do que uma.',''],
  ['<b>📲 Partilhar</b>','Manda o PDF a quem precisares, sem passar pelos ficheiros.',''],
   ['O mês é o programa que to propõe','Quando numa linha escolhes o fundo <b>Contribuição da Igreja</b>, ao lado da descrição aparece uma caixinha violeta com <b>o mês que essa pessoa tem de pagar</b>: não tens de te lembrar nem de o ir procurar. A caixinha aparece <b>só nos recibos de entrada</b>: numa saída não está, porque uma despesa não paga o mês de ninguém.','A descrição fica livre para o «+ Nome».'],
@@ -14642,7 +14645,7 @@ const GUIDE=[
   ['I mesi vanno <b>in fila</b>','Se scrivi un mese già pagato, o ne salti uno indietro, il programma ti ferma e ti dice qual è il mese giusto. Lo stesso se l\'importo non torna con <b>quota × mesi × persone</b> — la quota è quella scritta qui sopra, se la cambi cambia anche il controllo. <b>Ma l\'ultima parola è tua</b>: il messaggio ha <b>OK</b> per registrarla lo stesso e <b>Annulla</b> per tornare a correggere. Il programma avvisa, non decide.'],
   ['Puoi spuntare a mano','Se una ricevuta vecchia non nomina il mese, tocca la casella e la metti tu.'],
   ['<b>Esente</b>','Serve per chi la chiesa ha esonerato dal contributo. La riga diventa d\'ambra e <b>quella persona esce dall\'atteso dell\'anno</b>: se la maggioranza ha deciso che non deve versare, quei soldi non li si può aspettare. Quello che ha già versato <b>resta contato</b> nel raccolto: si toglie l\'obbligo, non i soldi arrivati. Accanto all\'atteso è scritto su quanti membri è calcolato e quanti esenti sono rimasti fuori.'],
-  ['Le pagine da presentare in chiesa','<b>📄 Esporta PDF</b> fa il foglio con <b>tutti i membri</b>, uno per uno, abbiano pagato o no, <b>più gli ospiti che hanno versato almeno un mese</b>. L\'ospite che non ha dato niente resta fuori: un obbligo non ce l\'ha.'],
+  ['Le pagine da presentare in chiesa','<b>📄 Esporta PDF</b> fa il foglio con <b>tutti i membri</b>, uno per uno, abbiano pagato o no, <b>più gli ospiti che hanno versato almeno un mese</b>. L\'ospite che non ha dato niente resta fuori: un obbligo non ce l\'ha. In alto, accanto al <b>totale incassato</b>, c\'è anche l\'<b>atteso dell\'anno</b>.'],
   ['<b>🖥 Presentazione</b>','La stessa tabella a schermo intero. I <b>nomi sono grandi</b> apposta, per leggerli dall\'ultima panca: per questo ci stanno undici righe per pagina e le pagine sono più d\'una.'],
   ['<b>📲 Condividi</b>','Manda il PDF a chi ti serve, senza passare dai file.'],
   ['Il mese te lo propone il programma','Quando su una riga scegli la cassa del contributo — <b>quella con la spunta</b>, comunque tu l\'abbia chiamata: Sede, Contributo Chiesa, quello che vuoi — accanto alla descrizione compare una casellina viola con dentro <b>il mese che quella persona deve pagare</b>: non devi ricordartelo né andarlo a cercare. La casellina compare <b>solo sulle ricevute in entrata</b>: in uscita non c\'è, perché una spesa non paga il mese di nessuno.','righeRicevuta','La descrizione resta libera per il «+ Nome».'],
@@ -18295,6 +18298,7 @@ ro:{"Sì, modifica":"Da, modifică",
  "in questa voce":"în această poziție",
  "Saldo nei depositi":"Soldul din depozite",
  "Totale nei depositi":"Totalul din depozite",
+ "Atteso dell'anno":"Așteptat pe an",
  "Altre voci":"Alte poziții",
  "Le spese piccole sono raggruppate nella voce «Varie»":"Cheltuielile mici sunt puse împreună în poziția «Varie»"},
 en:{"Sì, modifica":"Yes, edit it",
@@ -18338,6 +18342,7 @@ en:{"Sì, modifica":"Yes, edit it",
  "in questa voce":"in this item",
  "Saldo nei depositi":"Balance in the accounts",
  "Totale nei depositi":"Total in the accounts",
+ "Atteso dell'anno":"Expected for the year",
  "Altre voci":"Other items",
  "Le spese piccole sono raggruppate nella voce «Varie»":"Small expenses are grouped in the «Varie» item"},
 
@@ -18382,6 +18387,7 @@ es:{"Sì, modifica":"Sí, modificar",
  "in questa voce":"en esta partida",
  "Saldo nei depositi":"Saldo en los depósitos",
  "Totale nei depositi":"Total en los depósitos",
+ "Atteso dell'anno":"Esperado del año",
  "Altre voci":"Otras partidas",
  "Le spese piccole sono raggruppate nella voce «Varie»":"Los gastos pequeños se agrupan en la partida «Varie»"},
 pt:{"Sì, modifica":"Sim, alterar",
@@ -18425,6 +18431,7 @@ pt:{"Sì, modifica":"Sim, alterar",
  "in questa voce":"nesta rubrica",
  "Saldo nei depositi":"Saldo nos depósitos",
  "Totale nei depositi":"Total nos depósitos",
+ "Atteso dell'anno":"Esperado do ano",
  "Altre voci":"Outras rubricas",
  "Le spese piccole sono raggruppate nella voce «Varie»":"As despesas pequenas ficam juntas na rubrica «Varie»"}
 };
