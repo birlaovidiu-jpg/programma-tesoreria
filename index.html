@@ -1138,6 +1138,12 @@ html.tocco .line .l-fundbtn:disabled{background:#f2f4f7;color:var(--muted);curso
 .clic-lista{margin-top:8px;border:1px solid var(--line);border-radius:12px;background:#fff;overflow:hidden}
 .clic-lista[hidden]{display:none}
 .clic-tit{padding:10px 12px;font-weight:700;background:var(--red-s);color:#8f1f2a}
+.clic-zona.in{border-color:rgba(10,92,55,.35)}
+.clic-zona.in:hover,.clic-zona.in.on{background:rgba(10,92,55,.10);border-color:#0a5c37}
+.clic-zona.cp{border-color:rgba(75,63,158,.35)}
+.clic-zona.cp:hover,.clic-zona.cp.on{background:rgba(75,63,158,.10);border-color:#4b3f9e}
+.clic-tit.in{background:#e7f4ec;color:#0a5c37}
+.clic-tit.cp{background:#efecfb;color:#4b3f9e}
 .clic-riga{display:flex;gap:10px;align-items:center;width:100%;text-align:left;padding:10px 12px;border:0;border-top:1px solid var(--line);background:#fff;cursor:pointer;font:inherit;color:inherit}
 .clic-riga:hover{background:#f6f8fb}
 .clic-riga .cr-t{flex:1;min-width:0}
@@ -2366,7 +2372,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='14.4', VERSIONE_DATA='27 settembre 2026';
+const VERSIONE='14.5', VERSIONE_DATA='27 settembre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -8137,11 +8143,13 @@ function churchData(){
   const min=money($('chMin')?.value)||0;
   const rs=live().filter(r=>(!f||r.date>=f)&&(!t||r.date<=t));
   const campo={},locIn={},locOut={};
+  /* per il rapporto cliccabile: le righe di entrata di ogni cassa */
+  const ricIn={}, ricQui=(f,x)=>(ricIn[f]||(ricIn[f]=[])).push(x);
   rs.forEach(r=>r.lines.forEach(l=>{
     const v=+l.amount||0;
     if(r.type==='Entrata'){
-      if(l.dest==='Campo') campo[l.fund]=(campo[l.fund]||0)+v;
-      else if(chCassaOn(l)) locIn[l.fund]=(locIn[l.fund]||0)+v;
+      if(l.dest==='Campo'){ campo[l.fund]=(campo[l.fund]||0)+v; ricQui(l.fund,{r,l}) }
+      else if(chCassaOn(l)){ locIn[l.fund]=(locIn[l.fund]||0)+v; ricQui(l.fund,{r,l}) }
     }else if(l.dest==='Locale'&&chCassaOn(l)){
       /* LE USCITE SI RAGGRUPPANO PER DESCRIZIONE, non per fornitore: vedi
          raggruppaUscite() qui sotto. Qui si mette da parte tutto quello che
@@ -8167,7 +8175,7 @@ function churchData(){
        parte della chiesa locale: le diapositive usano «loc» */
     boxes:state.boxes.map(b=>({name:b.name,end:boxBalance(b.name,t||undefined),
                                loc:sumLines(l=>l.box===b.name&&l.dest==='Locale'&&chCassaOn(l),t||undefined)})),
-    field:fieldPending(t||undefined)};
+    field:fieldPending(t||undefined), ricIn};
 }
 /* ==========================================================
    LE USCITE DEL RAPPORTO, RAGGRUPPATE PER DESCRIZIONE
@@ -8472,8 +8480,12 @@ function sList(s,rows,x0,y0,w,color,soft,maxRows=8,due,alt,scala){
      c'è il riquadro del totale, e senza dirlo l'elenco ci finiva sopra */
   const spazio=alt||(SH-y0-215);
   const rh=Math.max(due?86:64,Math.min(due?160:130,Math.floor(spazio/Math.max(1,list.length))));
-  /* il rapporto cliccabile: ogni riga di uscita si ricorda dov'è sulla pagina */
-  if(due) s.c.zone=(s.c.zone||[]).concat(list.map(([k],i)=>({k,x:x0,y:y0+i*rh,w,h:rh-14})));
+  /* il rapporto cliccabile: ogni riga si ricorda dov'è sulla pagina, se è
+     un'uscita («due») e quali voci ci sono dentro — «Altre voci» ne
+     raccoglie più d'una */
+  s.c.zone=(s.c.zone||[]).concat(list.map(([k],i)=>({k,due:!!due,
+    chiavi:(i===list.length-1&&rows.length>list.length)?rows.slice(list.length-1).map(r=>r[0]):[k],
+    x:x0,y:y0+i*rh,w,h:rh-14})));
   /* i corpi sono i più grandi che ci stanno nella riga: si legge da lontano */
   const fs=rh>112?46:rh>92?41:rh>76?36:32;
   list.forEach(([k,v],i)=>{
@@ -8607,7 +8619,7 @@ function slideSet(){
   /* 3 · entrate */
   {const s=slide();
    sHead(s,state.settings.church+' · '+t('situazione locale'),t('Entrate'),d.label,'#0f7a4a','#12a06a');
-   sList(s,b.rows,90,250,SW-700,'#0a5c37','#e7f4ec');
+   sList(s,b.rows,90,250,SW-700,'#0a5c37','#b7dfc5');
    sBigBox(s,SW-560,250,470,160,t('Totale entrate'),euro(b.tot),'#0f7a4a','#0a5c37');
    const top=b.rows[0];
    if(top) sTopBox(s,SW-560,440,470,tn(top[0]),euro(top[1]),'#2f5d4a','#1d3b2f');
@@ -8636,7 +8648,7 @@ function slideSet(){
      /* «due»: sopra che cosa è stato comprato, sotto che cosa ci è finito
         dentro e quante spese sono. */
      const primo=i===0;
-     sList(s,blocco,90,250,primo?SW-700:SW-180,'#8f1f2a','#fceceb',PER,true,0,
+     sList(s,blocco,90,250,primo?SW-700:SW-180,'#8f1f2a','#f3b8bd',PER,true,0,
            Math.max(...c.rows.map(([,v])=>Math.abs(v)),1));
      if(primo){
        sBigBox(s,SW-560,250,470,160,t('Totale uscite'),euro(c.tot),'#bd2b39','#8f1f2a');
@@ -8685,11 +8697,12 @@ function slideSet(){
      ci sono: uno gigante, due affiancati, tre o quattro a griglia. */
   {const s=slide(),x=s.x;
    sHead(s,state.settings.church+' · '+t('situazione locale'),t('Saldo della chiesa locale'),d.label,'#0c736f','#14a29c');
-   /* SOLO I SOLDI DELLA CHIESA LOCALE. Quello che sta nel deposito in attesa
-      di partire per il Campo non è della comunità e qui non si mostra: il
-      Campo ha la sua diapositiva, la seconda, e finisce lì. */
+   /* I SALDI VERI DEI DEPOSITI (regola sua, v14.5): quello che alla fine del
+      periodo c'era davvero in banca e in contanti, calcolato come nella Home
+      (boxBalance: entrate − uscite − versamenti al Campo), non la sola parte
+      della chiesa locale. Alla data di oggi i numeri sono quelli della Home. */
    const bx=d.boxes.length?d.boxes:[{name:t('Depositi'),end:0,loc:0}];
-   const tot=bx.reduce((t,b)=>t+(b.loc||0),0);
+   const tot=bx.reduce((t,b)=>t+(b.end||0),0);
    const col=bx.length<=2?bx.length:(bx.length<=4?2:3);
    const rig=Math.ceil(bx.length/col);
    const G=30, X0=90, Y0=248, W=SW-180, HTOT=bx.length>1?190:0;
@@ -8699,7 +8712,7 @@ function slideSet(){
    bx.forEach((b,i)=>{
      const cx=X0+(i%col)*(cw+G), cy=Y0+Math.floor(i/col)*(ch+G);
      const t=tinte[i%tinte.length];
-     sSaldoBox(s,cx,cy,cw,ch,tn(b.name),euro(b.loc||0),t[0],t[1]);
+     sSaldoBox(s,cx,cy,cw,ch,tn(b.name),euro(b.end||0),t[0],t[1]);
    });
    if(HTOT) sSaldoBox(s,X0,Y0+H+G,W,HTOT,t('Totale della chiesa locale'),euro(tot),'#22303f','#0f2438');
    sFoot(s,++np); out.push(s.c);}
@@ -8742,36 +8755,51 @@ function wrapC(x,txt,cx,y,max,lh){
 let clicVoci=[];
 function apriRapportoClic(){
   const box=$('chClic'); if(!box) return;
-  let cs, ric;
-  try{ ric=churchData().locOut.ricevute||{}; cs=slideSet() }
+  let cs, d;
+  try{ d=churchData(); cs=slideSet() }
   catch(e){ console.error(e); toast(t('Non riesco a preparare il rapporto')); return }
+  const ricOut=d.locOut.ricevute||{}, ricIn=d.ricIn||{};
   clicVoci=[];
-  box.innerHTML=`<div class="note" style="margin-bottom:10px">${esc(t('Tocca una spesa per vedere le ricevute che ci sono dentro.'))}</div>`+
+  box.innerHTML=`<div class="note" style="margin-bottom:10px">${esc(t('Tocca una voce per vedere le ricevute che ci sono dentro.'))}</div>`+
     cs.map((c,i)=>{
-      const zone=(c.zone||[]).filter(z=>(ric[z.k]||[]).length).map(z=>{
-        const n=clicVoci.push({k:z.k,righe:ric[z.k]})-1;
-        return `<button type="button" class="clic-zona" style="left:${z.x/SW*100}%;top:${z.y/SH*100}%;width:${z.w/SW*100}%;height:${z.h/SH*100}%" onclick="mostraRicClic(this,${i},${n})"></button>`;
+      const zone=(c.zone||[]).map(z=>{
+        const righe=[].concat(...z.chiavi.map(k=>(z.due?ricOut:ricIn)[k]||[]));
+        if(!righe.length) return '';
+        const tipo=z.due?'':(Object.prototype.hasOwnProperty.call(d.campo,z.k)?' cp':' in');
+        const nome=z.chiavi.length>1?t('Altre voci'):(z.due?z.k.split(' — ')[0]:tn(z.k));
+        const n=clicVoci.push({nome,tipo,righe})-1;
+        return `<button type="button" class="clic-zona${tipo}" style="left:${z.x/SW*100}%;top:${z.y/SH*100}%;width:${z.w/SW*100}%;height:${z.h/SH*100}%" onclick="mostraRicClic(this,${i},${n})"></button>`;
       }).join('');
       return `<div class="clic-pag"><div class="clic-img"><img src="${c.toDataURL('image/jpeg',.85)}" alt="">${zone}</div><div class="clic-lista" id="clicL${i}" hidden></div></div>`;
     }).join('');
   box.scrollIntoView({block:'start',behavior:'smooth'});
 }
+/* L'elenco sotto la pagina: UNA RIGA PER RICEVUTA, con il totale della
+   ricevuta (regola sua). Se la ricevuta sta solo in parte in questa voce, sotto
+   si legge quanto. Il dettaglio si vede solo toccando la riga. */
 function mostraRicClic(btn,i,n){
   const el=$('clicL'+i), v=clicVoci[n]; if(!el||!v) return;
   const giaAperta=!el.hidden&&el.dataset.n===String(n);
   el.closest('.clic-pag').querySelectorAll('.clic-zona.on').forEach(b=>b.classList.remove('on'));
   if(giaAperta){ el.hidden=true; return }
   btn.classList.add('on'); el.dataset.n=n; el.hidden=false;
-  const righe=v.righe.map((x,j)=>({...x,j})).sort((a,b)=>String(a.r.date).localeCompare(String(b.r.date)));
-  const tot=righe.reduce((a,x)=>a+(+x.l.amount||0),0);
-  el.innerHTML=`<div class="clic-tit">${esc(v.k.split(' — ')[0])} · ${euro(tot)}</div>`+
-    righe.map(x=>`<button type="button" class="clic-riga" onclick="vediRicClic(${n},${x.j})">
-      <span class="cr-t"><b>${esc(x.r.name||'—')}</b>${x.l.desc?' · '+esc(x.l.desc):''}
-      <small>${fmtDate(x.r.date)} · ${esc(t('Ricevuta'))} ${esc(x.r.number||'')}</small></span>
-      <span class="cr-v">${euro(+x.l.amount||0)}</span></button>`).join('');
+  const perRic=new Map();
+  v.righe.forEach(x=>{ const g=perRic.get(x.r)||{r:x.r,parte:0}; g.parte+=(+x.l.amount||0); perRic.set(x.r,g) });
+  const ric=[...perRic.values()].sort((a,b)=>String(a.r.date).localeCompare(String(b.r.date)));
+  v.ric=ric;
+  const tot=ric.reduce((a,x)=>a+x.parte,0);
+  const totRic=r=>Number.isFinite(+r.total)?+r.total:(r.lines||[]).reduce((a,l)=>a+(+l.amount||0),0);
+  el.innerHTML=`<div class="clic-tit${v.tipo}">${esc(v.nome)} · ${euro(tot)}</div>`+
+    ric.map((x,j)=>{
+      const tr=totRic(x.r), parz=Math.abs(tr-x.parte)>.004;
+      return `<button type="button" class="clic-riga" onclick="vediRicClic(${n},${j})">
+      <span class="cr-t"><b>${esc(x.r.name||'—')}</b>
+      <small>${fmtDate(x.r.date)} · ${esc(t('Ricevuta'))} ${esc(x.r.number||'')}${parz?' · '+esc(t('in questa voce'))+' '+euro(x.parte):''}</small></span>
+      <span class="cr-v">${euro(tr)}</span></button>`;
+    }).join('');
   el.scrollIntoView({block:'nearest',behavior:'smooth'});
 }
-function vediRicClic(n,j){ const x=clicVoci[n]?.righe[j]; if(x) viewReceipt(x.r.id) }
+function vediRicClic(n,j){ const x=clicVoci[n]?.ric?.[j]; if(x) viewReceipt(x.r.id) }
 let deckImgs=null,deckI=0;
 function buildDeck(){
   if(deckImgs) return deckImgs;
@@ -12718,8 +12746,10 @@ chiesa:{t:'Raportul de prezentat în biserică',
  ['Ce este înăuntru','1 coperta cu numele bisericii · 2 <b>sumele trimise la Câmp</b> · 3 <b>intrările locale</b> · 4 <b>ieșirile locale</b>, cu cine și pentru ce pe două rânduri · 5 <b>recapitularea</b> perioadei · 6 <b>soldul depozitelor</b> cu litere mari.',''],
  ['<b>▶️ Prezintă pe tot ecranul</b>','Se derulează cu săgețile sau cu o atingere. Se iese cu <b>Ieși</b>.',''],
  ['<b>📄 Descarcă PDF-ul diapozitivelor</b>','Un PDF cu toate diapozitivele, de trimis sau de tipărit.',''],
- ['Câmpul apare <b>numai</b> în diapozitivul Câmpului','Toate celelalte vorbesc doar despre <b>biserica locală</b>: intrări locale, ieșiri locale, recapitulare și soldul. Iar soldul depozitelor socotește doar banii care sunt cu adevărat ai bisericii: zecimile și darurile care stau în sertar așteptând să plece la Câmp <b>nu</b> intră. Diapozitivul se numește <b>Soldul bisericii locale</b> tocmai de aceea.',''],
- ['Ieșirile se grupează <b>după descriere</b>','Apa de băut cumpărată de trei ori în trimestru nu face trei rânduri: face <b>unul singur</b>, cu suma tuturor, iar dedesubt scrie câte cheltuieli sunt și ce descrieri au intrat acolo. Programul citește <b>descrierile</b> chitanțelor și le pune împreună pe cele care vorbesc despre același lucru. Poziția <b>Varie</b> rămâne mică dinadins: nu trece de <b>200 €</b>, iar peste suma aceea cheltuielile redevin poziții cu numele lor. Dacă pozițiile sunt multe, ieșirile iau <b>mai mult de un diapozitiv</b> în loc să dispară în «Alte poziții».','']]},
+ ['Câmpul apare <b>numai</b> în diapozitivul Câmpului','Celelalte vorbesc despre <b>biserica locală</b>: intrări locale, ieșiri locale și recapitulare. Ultimul, <b>soldul depozitelor</b>, arată în schimb ce era <b>cu adevărat</b> în bancă și în numerar la sfârșitul perioadei: aceleași cifre ca pe pagina principală, inclusiv sumele care așteaptă să plece la Câmp.',''],
+ ['Ieșirile se grupează <b>pe categorii</b>','Programul citește descrierile, furnizorii și fondurile și pune împreună ce ține de același lucru: <b>binefacerea</b> persoană cu persoană («Ajutor pentru Sandra»), <b>utilitățile</b> cu numele lor (Estra și Illumia sunt «Energie electrică»), <b>curățenia sediului</b> și ce cumperi din <b>același magazin</b>, cu un titlu scris de program — «Produse de curățenie și igienă». Sub poziție scrie de la cine și câte cheltuieli sunt. Poziția <b>Varie</b> rămâne mică intenționat: nu trece de <b>200 €</b>. Dacă pozițiile sunt multe, ieșirile ocupă <b>mai mult de un diapozitiv</b>.',''],
+ ['<b>Fondurile locale de prezentat</b>','Sub perioadă sunt fondurile locale: cele <b>colorate</b> intră în raport, cele <b>albe</b> nu — nici la intrări, nici la ieșiri. Atingi un fond ca să-l aprinzi sau să-l stingi, iar programul ține minte alegerea.',''],
+ ['<b>🔎 Raport cu legături</b>','Aceleași diapozitive ca în PDF, aici înăuntru, dar fiecare poziție — Câmp, intrări și ieșiri — se poate atinge: sub pagină apar <b>chitanțele</b> din ea, câte un rând pe chitanță, cu totalul ei. Atingi o chitanță și se deschide întreagă. Folosește când în biserică cineva întreabă de o cheltuială anume. PDF-ul rămâne cum este.','']]},
 
 anagrafiche:{t:'Contribuabili și furnizori',
  lead:'Două agende: cine dă banii și cine îi primește.',
@@ -13184,8 +13214,10 @@ chiesa:{t:'The report to present in church',
  ['What is inside','1 cover with the church name · 2 <b>amounts sent to the Field</b> · 3 <b>local income</b> · 4 <b>local expenses</b>, with who and what for on two lines · 5 <b>summary</b> of the period · 6 <b>account balances</b> in large type.',''],
  ['<b>▶️ Present full screen</b>','Move through with the arrows or a tap. Leave with <b>Exit</b>.',''],
  ['<b>📄 Download slides PDF</b>','A PDF with all the slides, to send or to print.',''],
- ['The Field appears <b>only</b> on the Field slide','All the others speak only of the <b>local church</b>: local income, local expenses, summary, and the balance. And the balance of the accounts counts only the money that really belongs to the church: the tithes and offerings sitting in the drawer waiting to go to the Field are <b>not</b> in it. Before, the number included them too and the church looked richer than it is. The slide is called <b>Local church balance</b> for exactly that reason: cash plus bank, less what belongs to the Field.',''],
- ['Expenses are grouped <b>by description</b>','Drinking water bought three times in the quarter does not make three lines: it makes <b>one</b>, with the sum of all three, and underneath it says how many expenses it covers and which descriptions went into it. The program reads the receipt <b>descriptions</b> and puts together the ones that talk about the same thing. The <b>Varie</b> item is kept small on purpose: never above <b>€200</b>, and past that the expenses go back to being items with their own name. If there are many items, the expenses take <b>more than one slide</b> instead of disappearing into «Other items».','']]},
+ ['The Field appears <b>only</b> on the Field slide','The others speak of the <b>local church</b>: local income, local expenses and summary. The last one, the <b>balance of the accounts</b>, shows instead what was <b>really</b> in the bank and in cash at the end of the period: the same figures as the Home page, including the amounts waiting to be sent to the Field.',''],
+ ['Expenses are grouped <b>by category</b>','The program reads descriptions, suppliers and funds and puts together what belongs to the same thing: <b>charity</b> person by person («Help for Sandra»), <b>utilities</b> by name (Estra and Illumia are «Electricity»), the <b>cleaning of the premises</b>, and what you buy in the <b>same shop</b>, with a title written by the program — «Cleaning and hygiene products». Under the item it says from whom and how many expenses there are. The <b>Varie</b> item stays small on purpose: it does not go over <b>200 €</b>. If there are many items, expenses take <b>more than one slide</b>.',''],
+ ['<b>Local funds to present</b>','Under the period are the local funds: the <b>coloured</b> ones go into the report, the <b>white</b> ones do not — neither in income nor in expenses. Tap a fund to switch it on or off, and the program remembers the choice.',''],
+ ['<b>🔎 Clickable report</b>','The same slides as the PDF, here inside, but every item — Field, income and expenses — can be tapped: under the page the <b>receipts</b> inside it appear, one line per receipt with its total. Tap a receipt and it opens in full. Useful when someone in church asks about a particular expense. The PDF stays as it is.','']]},
 
 anagrafiche:{t:'Contributors and suppliers',
  lead:'Two address books: who gives the money and who receives it.',
@@ -13651,8 +13683,10 @@ chiesa:{t:'El informe para presentar en la iglesia',
  ['Qué hay dentro','1 portada con el nombre de la iglesia · 2 <b>cantidades enviadas al Campo</b> · 3 <b>ingresos locales</b> · 4 <b>gastos locales</b>, con quién y para qué en dos líneas · 5 <b>resumen</b> del periodo · 6 <b>saldo de los depósitos</b> en letra grande.',''],
  ['<b>▶️ Presentar a pantalla completa</b>','Se pasa con las flechas o con un toque. Se sale con <b>Salir</b>.',''],
  ['<b>📄 Descargar PDF de diapositivas</b>','Un PDF con todas las diapositivas, para mandar o para imprimir.',''],
- ['El Campo aparece <b>solo</b> en la diapositiva del Campo','Todas las demás hablan solo de la <b>iglesia local</b>: ingresos locales, gastos locales, resumen y el saldo. Y el saldo de los depósitos cuenta solo el dinero que es de verdad de la iglesia: los diezmos y las ofrendas que están en el cajón esperando salir hacia el Campo <b>no</b> entran. La diapositiva se llama <b>Saldo de la iglesia local</b> justo por eso.',''],
- ['Los gastos se agrupan <b>por descripción</b>','El agua de beber comprada tres veces en el trimestre no hace tres líneas: hace <b>una sola</b>, con la suma de las tres, y debajo pone cuántos gastos son y qué descripciones han entrado ahí. El programa lee las <b>descripciones</b> de los recibos y junta las que hablan de lo mismo. La partida <b>Varie</b> se queda pequeña a propósito: nunca pasa de <b>200 €</b>, y por encima los gastos vuelven a ser partidas con su nombre. Si hay muchas partidas, los gastos ocupan <b>más de una diapositiva</b> en vez de desaparecer en «Otras partidas».','']]},
+ ['El Campo aparece <b>solo</b> en la diapositiva del Campo','Las demás hablan de la <b>iglesia local</b>: ingresos locales, gastos locales y resumen. La última, el <b>saldo de los depósitos</b>, muestra en cambio lo que había <b>de verdad</b> en el banco y en efectivo al final del periodo: las mismas cifras de la página principal, incluidas las cantidades que esperan salir para el Campo.',''],
+ ['Los gastos se agrupan <b>por categoría</b>','El programa lee descripciones, proveedores y fondos y junta lo que se refiere a la misma cosa: la <b>beneficencia</b> persona por persona («Ayuda a Sandra»), los <b>suministros</b> con su nombre (Estra e Illumia son «Electricidad»), la <b>limpieza de la sede</b>, y lo que compras en la <b>misma tienda</b>, con un título escrito por el programa — «Productos de limpieza e higiene». Debajo de la partida pone de quién y cuántos gastos son. La partida <b>Varie</b> se queda pequeña a propósito: no pasa de <b>200 €</b>. Si las partidas son muchas, los gastos ocupan <b>más de una diapositiva</b>.',''],
+ ['<b>Fondos locales a presentar</b>','Debajo del periodo están los fondos locales: los <b>de color</b> entran en el informe, los <b>blancos</b> no — ni en los ingresos ni en los gastos. Tocas un fondo para encenderlo o apagarlo, y el programa recuerda la elección.',''],
+ ['<b>🔎 Informe con enlaces</b>','Las mismas diapositivas del PDF, aquí dentro, pero cada partida — Campo, ingresos y gastos — se puede tocar: debajo de la página aparecen los <b>recibos</b> que contiene, una línea por recibo con su total. Tocas un recibo y se abre entero. Sirve cuando en la iglesia alguien pregunta por un gasto concreto. El PDF se queda como está.','']]},
 
 anagrafiche:{t:'Contribuyentes y proveedores',
  lead:'Dos agendas: quien da el dinero y quien lo recibe.',
@@ -14117,8 +14151,10 @@ chiesa:{t:'O relatório para apresentar na igreja',
  ['O que está lá dentro','1 capa com o nome da igreja · 2 <b>quantias enviadas ao Campo</b> · 3 <b>entradas locais</b> · 4 <b>saídas locais</b>, com quem e para quê em duas linhas · 5 <b>resumo</b> do período · 6 <b>saldo dos depósitos</b> em letra grande.',''],
  ['<b>▶️ Apresentar em ecrã inteiro</b>','Passa-se com as setas ou com um toque. Sai-se com <b>Sair</b>.',''],
  ['<b>📄 Descarregar PDF dos diapositivos</b>','Um PDF com todos os diapositivos, para mandar ou imprimir.',''],
- ['O Campo aparece <b>só</b> no diapositivo do Campo','Todos os outros falam apenas da <b>igreja local</b>: entradas locais, saídas locais, resumo e o saldo. E o saldo dos depósitos conta só o dinheiro que é mesmo da igreja: os dízimos e as ofertas que estão na gaveta à espera de partir para o Campo <b>não</b> entram. O diapositivo chama-se <b>Saldo da igreja local</b> exactamente por isso.',''],
- ['As saídas agrupam-se <b>por descrição</b>','A água de beber comprada três vezes no trimestre não faz três linhas: faz <b>uma só</b>, com a soma das três, e por baixo diz quantas despesas são e que descrições lá entraram. O programa lê as <b>descrições</b> dos recibos e junta as que falam da mesma coisa. A rubrica <b>Varie</b> fica pequena de propósito: nunca passa dos <b>200 €</b>, e acima disso as despesas voltam a ser rubricas com o seu nome. Se as rubricas forem muitas, as saídas ocupam <b>mais do que um diapositivo</b> em vez de desaparecerem em «Outras rubricas».','']]},
+ ['O Campo aparece <b>só</b> no diapositivo do Campo','Os outros falam da <b>igreja local</b>: entradas locais, saídas locais e resumo. O último, o <b>saldo dos depósitos</b>, mostra em vez disso o que havia <b>de facto</b> no banco e em dinheiro no fim do período: os mesmos números da página inicial, incluindo as quantias que esperam partir para o Campo.',''],
+ ['As saídas agrupam-se <b>por categoria</b>','O programa lê descrições, fornecedores e fundos e junta o que diz respeito à mesma coisa: a <b>beneficência</b> pessoa a pessoa («Ajuda para Sandra»), os <b>serviços</b> com o seu nome (Estra e Illumia são «Energia elétrica»), a <b>limpeza da sede</b>, e o que compras na <b>mesma loja</b>, com um título escrito pelo programa — «Produtos de limpeza e higiene». Por baixo da rubrica diz de quem e quantas despesas são. A rubrica <b>Varie</b> fica pequena de propósito: não passa dos <b>200 €</b>. Se as rubricas forem muitas, as saídas ocupam <b>mais de um diapositivo</b>.',''],
+ ['<b>Fundos locais a apresentar</b>','Por baixo do período estão os fundos locais: os <b>coloridos</b> entram no relatório, os <b>brancos</b> não — nem nas entradas nem nas saídas. Tocas num fundo para o ligar ou desligar, e o programa lembra-se da escolha.',''],
+ ['<b>🔎 Relatório com ligações</b>','Os mesmos diapositivos do PDF, aqui dentro, mas cada rubrica — Campo, entradas e saídas — pode ser tocada: por baixo da página aparecem os <b>recibos</b> que contém, uma linha por recibo com o seu total. Tocas num recibo e abre-se inteiro. Serve quando na igreja alguém pergunta por uma despesa concreta. O PDF fica como está.','']]},
 
 anagrafiche:{t:'Contribuintes e fornecedores',
  lead:'Duas listas: quem dá o dinheiro e quem o recebe.',
@@ -14620,7 +14656,7 @@ const GUIDE=[
 
 /* ══════════ RAPPORTI ══════════ */
 {id:'chiesa',cat:'Rapporti',t:'Il rapporto da presentare in chiesa',
- k:'rapporto chiesa comunita assemblea diapositive slide presentazione proiettore trimestre pdf schermo',
+ k:'rapporto chiesa comunita assemblea diapositive slide presentazione proiettore trimestre pdf schermo cliccabile ricevute casse locali categorie saldo banca contanti',
  lead:'Diapositive 16:9, pronte da proiettare o da stampare.',
  pic:'rapportoChiesa',cap:'Scegli il periodo e il programma prepara le diapositive.',
  steps:[
@@ -14629,8 +14665,10 @@ const GUIDE=[
   ['Che cosa c\'è dentro','1 copertina con il nome della chiesa · 2 <b>somme trasmesse al Campo</b> · 3 <b>entrate locali</b> · 4 <b>uscite locali</b>, con chi e per che cosa su due righe · 5 <b>riepilogo</b> del periodo · 6 <b>saldo dei depositi</b> in caratteri grandi.'],
   ['<b>▶️ Presenta a schermo intero</b>','Si scorre con le frecce o con un tocco. Si esce con <b>Esci</b>.'],
   ['<b>📄 Scarica PDF diapositive</b>','Un PDF con tutte le diapositive, da mandare o da stampare.'],
- ['Il Campo compare <b>solo</b> nella diapositiva del Campo','Tutte le altre parlano soltanto della <b>chiesa locale</b>: entrate locali, uscite locali, riepilogo, e il saldo. E il <b>saldo dei depositi</b> conta solo i soldi che sono davvero della chiesa: le decime e le offerte che stanno nel cassetto in attesa di partire per il Campo <b>non</b> ci sono dentro. Prima il numero comprendeva anche quelli e sembrava che la chiesa avesse più di quello che ha davvero. La diapositiva si chiama <b>Saldo della chiesa locale</b> proprio per questo: contanti più banca, meno quello che è del Campo.'],
-  ['Le uscite si raggruppano <b>per descrizione</b>','L\'acqua da bere comprata tre volte nel trimestre non fa tre righe: ne fa <b>una sola</b> — «Acqua da bere» — con la somma di tutte e tre, e sotto sta scritto quante spese sono e quali descrizioni ci sono finite dentro. Il programma legge le <b>descrizioni</b> delle ricevute e mette insieme quelle che parlano della stessa cosa. La voce <b>Varie</b> resta piccola apposta: non passa i <b>200 €</b>, e sopra quella cifra le spese tornano a essere voci con il loro nome — in chiesa una «Varie» da 300 € non dice niente a nessuno. Se le voci sono tante, le uscite prendono <b>più di una diapositiva</b> invece di sparire dentro «Altre voci».']]},
+ ['Il Campo compare <b>solo</b> nella diapositiva del Campo','Le altre parlano della <b>chiesa locale</b>: entrate locali, uscite locali e riepilogo. L\'ultima, il <b>saldo dei depositi</b>, mostra invece quello che alla fine del periodo c\'era <b>davvero</b> in banca e in contanti: gli stessi numeri della <b>Home</b>, comprese le somme che aspettano di partire per il Campo.'],
+ ['Le uscite si raggruppano <b>per categoria</b>','Il programma legge descrizioni, fornitori e casse e mette insieme quello che riguarda la stessa cosa: la <b>beneficenza</b> persona per persona («Aiuto a Sandra»), le <b>utenze</b> con il loro nome (Estra e Illumia sono «Energia elettrica»), la <b>pulizia della sede</b>, e quello che compri nello <b>stesso negozio</b>, con un titolo scritto dal programma — «Prodotti per la pulizia e l\'igiene». Sotto la voce c\'è da chi e quante spese sono. La voce <b>Varie</b> resta piccola apposta: non passa i <b>200 €</b>. Se le voci sono tante, le uscite prendono <b>più di una diapositiva</b>.'],
+ ['<b>Casse locali da presentare</b>','Sotto il periodo ci sono le casse locali: quelle <b>colorate</b> entrano nel rapporto, quelle <b>bianche</b> no — né nelle entrate, né nelle uscite. Tocchi una cassa per accenderla o spegnerla, e il programma si ricorda la scelta.'],
+ ['<b>🔎 Rapporto cliccabile</b>','Le stesse diapositive del PDF, qui dentro, ma ogni voce — Campo, entrate e uscite — si tocca: sotto la pagina compaiono le <b>ricevute</b> che ci sono dentro, una riga per ricevuta con il suo totale. Tocchi una ricevuta e si apre intera. Serve quando in chiesa qualcuno chiede di una spesa precisa. Il PDF resta com\'è.']]},
 
 /* ══════════ ANAGRAFICHE ══════════ */
 {id:'anagrafiche',cat:'Anagrafiche',t:'Contribuenti e fornitori',
@@ -18249,6 +18287,8 @@ ro:{"Sì, modifica":"Da, modifică",
  "🔎 Rapporto cliccabile":"🔎 Raport cu legături",
  "Tocca una spesa per vedere le ricevute che ci sono dentro.":"Atinge o cheltuială ca să vezi chitanțele din ea.",
  "Non riesco a preparare il rapporto":"Nu reușesc să pregătesc raportul",
+ "Tocca una voce per vedere le ricevute che ci sono dentro.":"Atinge o poziție ca să vezi chitanțele din ea.",
+ "in questa voce":"în această poziție",
  "Altre voci":"Alte poziții",
  "Le spese piccole sono raggruppate nella voce «Varie»":"Cheltuielile mici sunt puse împreună în poziția «Varie»"},
 en:{"Sì, modifica":"Yes, edit it",
@@ -18288,6 +18328,8 @@ en:{"Sì, modifica":"Yes, edit it",
  "🔎 Rapporto cliccabile":"🔎 Clickable report",
  "Tocca una spesa per vedere le ricevute che ci sono dentro.":"Tap an expense to see the receipts inside it.",
  "Non riesco a preparare il rapporto":"I cannot prepare the report",
+ "Tocca una voce per vedere le ricevute che ci sono dentro.":"Tap an item to see the receipts inside it.",
+ "in questa voce":"in this item",
  "Altre voci":"Other items",
  "Le spese piccole sono raggruppate nella voce «Varie»":"Small expenses are grouped in the «Varie» item"},
 
@@ -18328,6 +18370,8 @@ es:{"Sì, modifica":"Sí, modificar",
  "🔎 Rapporto cliccabile":"🔎 Informe con enlaces",
  "Tocca una spesa per vedere le ricevute che ci sono dentro.":"Toca un gasto para ver los recibos que contiene.",
  "Non riesco a preparare il rapporto":"No consigo preparar el informe",
+ "Tocca una voce per vedere le ricevute che ci sono dentro.":"Toca una partida para ver los recibos que contiene.",
+ "in questa voce":"en esta partida",
  "Altre voci":"Otras partidas",
  "Le spese piccole sono raggruppate nella voce «Varie»":"Los gastos pequeños se agrupan en la partida «Varie»"},
 pt:{"Sì, modifica":"Sim, alterar",
@@ -18367,6 +18411,8 @@ pt:{"Sì, modifica":"Sim, alterar",
  "🔎 Rapporto cliccabile":"🔎 Relatório com ligações",
  "Tocca una spesa per vedere le ricevute che ci sono dentro.":"Toca numa despesa para ver os recibos que contém.",
  "Non riesco a preparare il rapporto":"Não consigo preparar o relatório",
+ "Tocca una voce per vedere le ricevute che ci sono dentro.":"Toca numa rubrica para ver os recibos que contém.",
+ "in questa voce":"nesta rubrica",
  "Altre voci":"Outras rubricas",
  "Le spese piccole sono raggruppate nella voce «Varie»":"As despesas pequenas ficam juntas na rubrica «Varie»"}
 };
