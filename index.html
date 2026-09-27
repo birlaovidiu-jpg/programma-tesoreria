@@ -2372,7 +2372,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='14.6', VERSIONE_DATA='27 settembre 2026';
+const VERSIONE='14.7', VERSIONE_DATA='27 settembre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -5655,8 +5655,10 @@ async function sharePdf(id){
   /* Parte SOLO la ricevuta. Gli allegati (fatture, scontrini, contabili)
      sono documenti interni: restano nel programma e si aprono dalla scheda
      della ricevuta, ma non si mandano insieme a chi riceve la ricevuta. */
+  /* SOLO IL FILE: con un titolo o un testo insieme, sul Mac «Salva» metteva
+     sul desktop anche un file di testo */
   if(navigator.canShare?.({files:[file]})){
-    try{ await navigator.share({files:[file],title:`Ricevuta ${r.number}`}); return }
+    try{ await navigator.share({files:[file]}); return }
     catch(e){ if(e.name==='AbortError') return }
   }
   saveFile(file);
@@ -6557,9 +6559,10 @@ async function contribShare(){
     const blob=inAltaQualita(()=>pdfFromPages(contribPages().map(c=>({canvas:c,wmm:297,hmm:167.1})),1));
     file=new File([blob],`Contributo_${state.settings.church.replace(/\s+/g,'_')}_${$('cYear').value}.pdf`,{type:'application/pdf'});
   }catch(e){ console.error(e); toast('Non riesco a creare il PDF'); return }
-  const text=`${state.settings.church}\nContributo Chiesa ${$('cYear').value}`;
+  /* SOLO IL FILE: con un titolo o un testo insieme, sul Mac «Salva» metteva
+     sul desktop anche un file di testo */
   if(navigator.canShare?.({files:[file]})){
-    try{ await navigator.share({files:[file],title:text,text}); return }catch(e){ if(e.name==='AbortError') return }
+    try{ await navigator.share({files:[file]}); return }catch(e){ if(e.name==='AbortError') return }
   }
   saveFile(file); toast('PDF scaricato');
 }
@@ -12042,7 +12045,8 @@ async function preparaApp(){
     const zip=zipBlob(files);
     const file=new File([zip],'Tesoreria_app.zip',{type:'application/zip'});
     if(isApple()&&navigator.canShare?.({files:[file]})){
-      try{ await navigator.share({files:[file],title:'Tesoreria · applicazione'}) }
+      /* solo il file: con il titolo, sul Mac nasceva anche un file di testo */
+      try{ await navigator.share({files:[file]}) }
       catch(e){ if(e?.name!=='AbortError') saveFile(file) }
     }else saveFile(file);
     alert('PACCHETTO PRONTO · Tesoreria_app.zip\n\n'+
@@ -12346,12 +12350,10 @@ async function shareApp(){
   try{ html=buildStandaloneHtml() }catch(e){ console.error(e); toast('Non riesco a preparare la copia'); return }
   const file=new File([html],appFileName(),{type:'text/html'});
   const mb=(file.size/1048576).toFixed(2);
-  const text=`Tesoreria ${state.settings.church}\n`+
-    `Copia completa del programma con ${state.receipts.length} ricevute: i dati sono già dentro.\n\n`+
-    `Sull'altro dispositivo: tocca il file, poi «Condividi» → «Apri con Safari».\n`+
-    `Da lì «Aggiungi alla schermata Home» e diventa un'app.`;
+  /* SOLO IL FILE: con un titolo o un testo insieme, sul Mac «Salva» metteva
+     sul desktop anche un file di testo */
   if(navigator.canShare?.({files:[file]})){
-    try{ await navigator.share({files:[file],title:'Tesoreria · copia completa',text});
+    try{ await navigator.share({files:[file]});
          setTimeout(()=>alert('COPIA MANDATA\n\n'+
            'Sull\'altro dispositivo il file va aperto con Safari, se no resta una pagina morta:\n\n'+
            '1. tocca il file che è arrivato\n'+
@@ -15368,8 +15370,10 @@ async function condividiRicevutaArchivio(){
   const r=window.__archRic; if(!r) return;
   let blob; try{ await imgsReady(r); blob=receiptPdf(r) }catch(e){ toast('Non riesco a creare il PDF'); return }
   const file=new File([blob],`Ricevuta_${r.number}.pdf`,{type:'application/pdf'});
+  /* SOLO IL FILE: con un titolo o un testo insieme, sul Mac «Salva» metteva
+     sul desktop anche un file di testo */
   if(navigator.canShare?.({files:[file]})){
-    try{ await navigator.share({files:[file],title:`Ricevuta ${r.number}`}); return }
+    try{ await navigator.share({files:[file]}); return }
     catch(e){ if(e.name==='AbortError') return }
   }
   saveFile(file); toast('PDF salvato');
