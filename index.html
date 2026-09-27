@@ -2372,7 +2372,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='14.8', VERSIONE_DATA='27 settembre 2026';
+const VERSIONE='14.9', VERSIONE_DATA='27 settembre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -8533,6 +8533,10 @@ function sBigBox(s,x0,y0,w,h,label,value,c1,c2){
   const g=x.createLinearGradient(x0,y0,x0+w,y0+h); g.addColorStop(0,c1); g.addColorStop(1,c2);
   x.fillStyle=g; roundRect(x,x0,y0,w,h,22); x.fill();
   x.fillStyle='rgba(255,255,255,.82)'; x.font=SF(700,28);
+  /* la scritta non esce dal riquadro: se è più larga si rimpicciolisce;
+     se ci sta, resta a 28 come prima */
+  let fl=28;
+  while(fl>16&&x.measureText(label.toUpperCase()).width>w-60){ fl--; x.font=SF(700,fl) }
   x.fillText(label.toUpperCase(),x0+30,y0+52);
   x.fillStyle='#fff';
   /* LA CIFRA NON SI TAGLIA MAI.
@@ -8615,11 +8619,12 @@ function slideSet(){
   /* 2 · campo */
   {const s=slide();
    sHead(s,state.settings.church,t('Somme trasmesse al Campo'),d.label,'#3b2f7e','#5b48b0');
-   /* sotto c'è il riquadro del totale: l'elenco si deve fermare prima, se no
-      il totale gli finisce sopra e sborda dal fondo della pagina */
-   const bh=170, by=SH-118-bh;
-   const y=sList(s,a.rows,90,250,SW-180,'#4b3f9e','#cbc3ee',8,false,by-276);
-   sBigBox(s,90,Math.max(y+26,by),SW-180,bh,t('Totale trasmesso al Campo'),euro(a.tot),'#4b3f9e','#7a5ea8');
+   /* IMPAGINATA COME LE ALTRE (v14.9): l'elenco a sinistra con tutta
+      l'altezza della pagina, il totale a destra. Con il totale sotto, otto
+      casse stavano in mezza pagina e le barre erano sottili la metà di quelle
+      delle entrate e delle uscite. */
+   sList(s,a.rows,90,250,SW-700,'#4b3f9e','#cbc3ee',8);
+   sBigBox(s,SW-560,250,470,160,t('Totale trasmesso al Campo'),euro(a.tot),'#4b3f9e','#7a5ea8');
    sFoot(s,++np); out.push(s.c);}
 
   /* 3 · entrate */
