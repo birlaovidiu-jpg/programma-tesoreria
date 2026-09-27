@@ -2351,7 +2351,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='14.2', VERSIONE_DATA='26 settembre 2026';
+const VERSIONE='14.3', VERSIONE_DATA='27 settembre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -8131,7 +8131,7 @@ function churchData(){
       /* LE USCITE SI RAGGRUPPANO PER DESCRIZIONE, non per fornitore: vedi
          raggruppaUscite() qui sotto. Qui si mette da parte tutto quello che
          serve per scrivere poi la voce: quanto, che cosa e chi. */
-      const k=chiaveSpesa(l);
+      const k=chiaveSpesa(l,r);
       const g=locOut[k]||(locOut[k]={tot:0,n:0,desc:new Set(),chi:new Set(),fondo:''});
       g.tot+=v; g.n++;
       const d=String(l.desc||'').trim();
@@ -8179,11 +8179,133 @@ function paroleSpesa(txt){
     .split(/\s+/)
     .filter(w=>w.length>2&&!SPESA_STOP.has(w)&&!/^\d+$/.test(w));
 }
-function chiaveSpesa(l){
+/* ══════════════════════════════════════════════════════════
+   LE USCITE MESSE INSIEME PER CATEGORIA
+   Regola sua: il rapporto deve essere chiaro, corto e professionale. Quindi
+   le uscite non si mettono più insieme solo per la prima parola della
+   descrizione, ma così, in quest'ordine:
+   1 · la BENEFICENZA si raccoglie persona per persona — «Per Sandra» e
+       «Aiuto per Sandra» sono la stessa voce, «Aiuto a Sandra»;
+   2 · le UTENZE e i SERVIZI hanno la loro voce, con il nome scritto qui:
+       Estra e Illumia sono tutte e due «Energia elettrica»;
+   3 · la PULIZIA della sede fatta da qualcuno è una voce sola;
+   4 · quello che si compra in uno STESSO NEGOZIO è una voce sola, e il
+       titolo lo scrive il programma leggendo le descrizioni: carta
+       igienica, cestini e detersivi diventano «Prodotti per la pulizia e
+       l'igiene». Due negozi con lo stesso titolo diventano una voce sola;
+   5 · quello che resta si raggruppa come prima, per descrizione.
+   ══════════════════════════════════════════════════════════ */
+const normSpesa=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')
+  .replace(/[^a-z0-9]+/g,' ').trim();
+/* utenze e servizi: [chiave, titolo, parole che la riconoscono (descrizione e fornitore)] */
+const SPESA_CAT=[
+  ['energia','Energia elettrica',/\b(estra|illumia|enel|edison|hera|a2a|iren|sorgenia|plenitude|octopus|engie|luce|energia elettrica|corrente elettrica)\b/],
+  ['gas','Gas e riscaldamento',/\b(gas|metano|gpl|riscaldamento|pellet)\b/],
+  ['idrico','Servizio idrico',/\b(acquedotto|nuove acque|publiacqua|servizio idrico|bolletta acqua)\b/],
+  ['acqua','Acqua potabile',/\b(culligan|boccion[ei]|erogator[ei])\b/],
+  ['telefono','Telefono e internet',/\b(tim|telecom|vodafone|windtre|wind|fastweb|iliad|tiscali|eolo|internet|telefon\w*|adsl|fibra)\b/],
+  ['affitto','Affitto della sede',/\b(affitt[oi]|locazione|pigione)\b/],
+  ['assicurazione','Assicurazioni',/\b(assicurazion[ei]|polizza|polizze)\b/],
+  ['banca','Spese bancarie e postali',/\b(commission[ei]|spese bancarie|canone conto|imposta di bollo|spese postali|poste italiane)\b/],
+  ['rifiuti','Tassa sui rifiuti',/\b(tari|rifiuti)\b/],
+  ['viaggi','Viaggi e trasferte',/\b(viagg\w*|trasfert\w*|carburant\w*|benzin\w*|gasolio|diesel|autostrad\w*|pedagg\w*|treno|treni|aereo|volo|voli|chilometr\w*|parcheggi\w*|taxi)\b/],
+  ['cena','Occorrente per la Santa Cena',/\b(santa cena|comunione)\b/],
+  ['pulizia','Pulizia della sede',/(?!)/]
+];
+/* che cosa si compra in un negozio: [titolo, detto in breve, parole] */
+const SPESA_TIPI=[
+  ["Prodotti per la pulizia e l'igiene",'pulizia e igiene',/\b(pulizi\w*|detersiv\w*|detergent\w*|sapon\w*|igien\w*|asciugaman\w*|portacarta|scop[ae]|spugn\w*|sacch\w*|cestin\w*|stracc\w*|candeggin\w*|disinfett\w*|salviett\w*|bagn[oi]|deodorant\w*|guant[oi]|carta)\b/g],
+  ['Materiale per la tavola e il ristoro','tavola e ristoro',/\b(bicchier\w*|piatt\w*|posat\w*|tovagli\w*|acqua|bevand\w*|succ[oh]\w*|suco|caffe|zucchero|contenitor\w*|pizz\w*|pane|panini|cibo|aliment\w*|pranzo|cena|merenda|biscott\w*|tazz\w*|brocc\w*|thermos|bottigli\w*|frutta|dolci)\b/g],
+  ['Materiale audio e tecnico','audio e tecnica',/\b(microfon\w*|cav[oi]|batteri\w*|pile|amplific\w*|mixer|altoparlant\w*|proiettor\w*|schermo|adattator\w*|riduzion\w*|prolung\w*|computer)\b/g],
+  ['Fiori e cura del verde','fiori e verde',/\b(fior\w*|piant\w*|concim\w*|prato|aiuol\w*|giardin\w*|terriccio|vas[oi]|sement\w*)\b/g],
+  ['Cancelleria e stampa','cancelleria',/\b(cancelleri\w*|penn[ae]|matit\w*|quadern\w*|risma|risme|bust[ae]|francobolli|fotocopi\w*|stamp[ae]|stampant\w*|toner|cartucc\w*|inchiostr\w*|volantin\w*)\b/g],
+  ['Manutenzione della sede','manutenzione',/\b(riparazion\w*|manutenzion\w*|idraulic\w*|elettricista|ferrament\w*|vernic\w*|pittur\w*|serratur\w*|chiav[ei]|viti|tassell\w*|attrezz\w*|lampadin\w*)\b/g],
+  ['Arredi','arredi',/\b(sedi[ae]|tavol[oi]|mobil[ei]|armadi\w*|scaffal\w*|tend[ae]|tappet\w*|panc[ah]\w*)\b/g],
+  ['Libri e letteratura','libri',/\b(libr[oi]|bibbi\w*|innari\w*|lezionari\w*|letteratur\w*|rivist\w*|abbonament\w*)\b/g]
+];
+const BENEF_FONDO=/\b(dorca|beneficen\w*|assistenza|carita|solidariet\w*|aiut\w*)\b/;
+const BENEF_TESTO=/\b(beneficen\w*|carita|solidariet\w*|aiut[oi]|sostegno)\b/;
+/* parole che dopo «per» non sono il nome di una persona */
+const BENEF_GEN=new Set(['aiuto','aiuti','sostegno','beneficenza','offerta','offerte','contributo','prodotti',
+  'prodotto','naturali','famiglia','famiglie','bisognosi','poveri','missione','chiesa','fratelli','sorelle',
+  'fratello','sorella','bambini','anziani','profughi','emergenza','natale','pasqua','medicine','farmaci',
+  'bollette','bolletta','affitto','cibo','viveri','alimentari','pacco','pacchi','dorca']);
+/* il nome della persona aiutata, com'è scritto nella descrizione */
+function personaAiutata(desc){
+  const nd=normSpesa(desc);
+  let p='';
+  const m=nd.match(/\b(?:per|a|ad|alla|al|pro)\s+(?:(?:la|il|sorella|fratello|sig|sigra|signora|signor)\s+)?([a-z]{3,})$/);
+  if(m) p=m[1];
+  else{
+    const w=nd.split(' ').filter(x=>x.length>2&&!SPESA_STOP.has(x)&&!BENEF_GEN.has(x)&&!/^\d+$/.test(x));
+    if(w.length===1) p=w[0];
+  }
+  if(!p||BENEF_GEN.has(p)||SPESA_STOP.has(p)) return '';
+  /* la grafia vera, con gli accenti: «Nicolò», non «nicolo» */
+  const vero=String(desc||'').split(/[^\p{L}]+/u).find(x=>normSpesa(x)===p)||p;
+  return vero.charAt(0).toUpperCase()+vero.slice(1).toLowerCase();
+}
+function chiaveSpesa(l,r){
+  const desc=normSpesa(l.desc), chi=normSpesa(r&&r.name), fondo=normSpesa(l.fund);
+  const tutto=(desc+' '+chi).trim();
+  /* 1 · beneficenza, persona per persona */
+  if(BENEF_FONDO.test(fondo)||BENEF_TESTO.test(tutto)) return 'b:'+personaAiutata(l.desc);
+  /* 2 · utenze e servizi · il gas prima, se la descrizione parla solo di gas,
+     perché lo stesso fornitore (Estra) vende luce e gas */
+  if(/\b(gas|metano|gpl|riscaldamento|pellet)\b/.test(desc)&&!/\b(luce|elettric\w*|energia)\b/.test(desc)) return 'k:gas';
+  if(fondo==='santa cena') return 'k:cena';
+  for(const [id,,re] of SPESA_CAT) if(re.test(tutto)) return 'k:'+id;
+  /* 3 · la pulizia fatta da qualcuno (non i prodotti per pulire) */
+  if(/\bpulizi[ae]\b/.test(tutto)&&!/\b(prodott\w*|detersiv\w*|detergent\w*|sapon\w*|carta|scop[ae]|sacch\w*|spugn\w*)\b/.test(desc)) return 'k:pulizia';
+  /* 4 · stesso negozio: si mette insieme quello che è un ARTICOLO riconosciuto
+     (carta, bicchieri, microfoni…) o che ha una descrizione troppo vaga per
+     stare da sola («Sede»). Una spesa con una descrizione tutta sua che non è
+     un articolo — «Impaginazione del Legionario» — resta una voce a sé, anche
+     se il fornitore è lo stesso del caffè. */
+  if(chi&&(tipoSpesa(l.desc)||paroleSpesa(l.desc).length<=1)) return 'f:'+chi;
+  /* 5 · come prima: la prima parola che conta della descrizione, o la cassa */
   const p=paroleSpesa(l.desc);
   if(p.length) return 'd:'+p[0];
   const f=paroleSpesa(l.fund);
   return 'c:'+(f[0]||String(l.fund||'uscita').toLowerCase());
+}
+/* di che tipo è una descrizione: il tipo con più parole riconosciute */
+function tipoSpesa(d){
+  const nd=normSpesa(d); let best=null, n=0;
+  SPESA_TIPI.forEach(tp=>{ const k=(nd.match(tp[2])||[]).length; if(k>n){ n=k; best=tp } });
+  return best;
+}
+/* il titolo della voce · null = si scrive come prima (titoloSpesa) */
+function capoVoce(k,g){
+  if(k.startsWith('b:')){
+    const p=k.slice(2);
+    if(!p) return {titolo:t('Beneficenza e aiuti')};
+    return {titolo:t(/^a/i.test(p)?'Aiuto ad {n}':'Aiuto a {n}').replace('{n}',p),persona:true};
+  }
+  if(k.startsWith('k:')){
+    const c=SPESA_CAT.find(x=>x[0]===k.slice(2));
+    return {titolo:t(c[1])};
+  }
+  if(k.startsWith('f:')){
+    const conta=new Map();
+    g.desc.forEach(d=>{ const tp=tipoSpesa(d); if(tp) conta.set(tp,(conta.get(tp)||0)+1) });
+    if(conta.size===1) return {titolo:t([...conta.keys()][0][0])};
+    if(conta.size>1) return {titolo:t('Materiale e articoli vari'),
+      classi:[...conta.entries()].sort((a,b)=>b[1]-a[1]).map(([tp])=>t(tp[1]))};
+  }
+  return null;
+}
+/* sotto il titolo: che cosa (se è una spesa sola), da chi, quante spese */
+function scriviVoce(v){
+  const parti=[];
+  if(v.n===1&&v.desc.size===1&&!v.c.persona){
+    const d=[...v.desc][0];
+    if(normSpesa(d)!==normSpesa(v.c.titolo)) parti.push(d);
+  }
+  if(v.chi.size){ const c=[...v.chi]; parti.push(c.slice(0,3).join(', ')+(c.length>3?' …':'')) }
+  if(v.n>1) parti.push(`${v.n} spese`);
+  if(v.classi.size) parti.push([...v.classi].join(', '));
+  return parti.length?`${v.c.titolo} — ${parti.join(' · ')}`:v.c.titolo;
 }
 /* il titolo della voce e, sotto, che cosa ci è finito dentro */
 function titoloSpesa(g){
@@ -8204,8 +8326,20 @@ function titoloSpesa(g){
    nessuno: si deve poter leggere per che cosa sono usciti i soldi. */
 const TETTO_VARIE=200;
 function raggruppaUscite(mappa,min){
-  const voci=Object.values(mappa)
-    .map(g=>({titolo:titoloSpesa(g),tot:g.tot}))
+  /* i gruppi con lo stesso titolo diventano una voce sola: due negozi di
+     prodotti per la pulizia, per chi ascolta, sono una spesa sola */
+  const perTitolo=new Map();
+  Object.entries(mappa).forEach(([k,g])=>{
+    const c=capoVoce(k,g);
+    const id=c?'n:'+c.titolo:'v:'+k;
+    let v=perTitolo.get(id);
+    if(!v) perTitolo.set(id,v={c,g,tot:0,n:0,desc:new Set(),chi:new Set(),classi:new Set()});
+    v.tot+=g.tot; v.n+=g.n;
+    g.desc.forEach(d=>v.desc.add(d)); g.chi.forEach(x=>v.chi.add(x));
+    ((c&&c.classi)||[]).forEach(x=>v.classi.add(x));
+  });
+  const voci=[...perTitolo.values()]
+    .map(v=>({titolo:v.c?scriviVoce(v):titoloSpesa(v.g),tot:v.tot}))
     .filter(v=>Math.abs(v.tot)>.004)
     .sort((a,b)=>b.tot-a.tot);
   const out={};
@@ -18015,19 +18149,147 @@ Object.keys(TRAD13).forEach(l=>{ TRAD[l]=Object.assign(TRAD[l]||{},TRAD13[l]) })
 const TRAD14={
 ro:{"Sì, modifica":"Da, modifică",
  "Conferma":"Confirmare",
+ "Energia elettrica":"Energie electrică",
+ "Gas e riscaldamento":"Gaz și încălzire",
+ "Servizio idrico":"Serviciul de apă",
+ "Acqua potabile":"Apă potabilă",
+ "Telefono e internet":"Telefon și internet",
+ "Affitto della sede":"Chiria sediului",
+ "Assicurazioni":"Asigurări",
+ "Spese bancarie e postali":"Cheltuieli bancare și poștale",
+ "Tassa sui rifiuti":"Taxa pentru deșeuri",
+ "Viaggi e trasferte":"Călătorii și deplasări",
+ "Occorrente per la Santa Cena":"Cele necesare pentru Sfânta Cină",
+ "Pulizia della sede":"Curățenia sediului",
+ "Beneficenza e aiuti":"Binefacere și ajutoare",
+ "Aiuto a {n}":"Ajutor pentru {n}",
+ "Aiuto ad {n}":"Ajutor pentru {n}",
+ "Prodotti per la pulizia e l'igiene":"Produse de curățenie și igienă",
+ "Materiale per la tavola e il ristoro":"Materiale pentru masă și gustări",
+ "Materiale audio e tecnico":"Material audio și tehnic",
+ "Fiori e cura del verde":"Flori și îngrijirea grădinii",
+ "Cancelleria e stampa":"Papetărie și tipărire",
+ "Manutenzione della sede":"Întreținerea sediului",
+ "Arredi":"Mobilier",
+ "Libri e letteratura":"Cărți și literatură",
+ "Materiale e articoli vari":"Materiale și articole diverse",
+ "pulizia e igiene":"curățenie și igienă",
+ "tavola e ristoro":"masă și gustări",
+ "audio e tecnica":"audio și tehnică",
+ "fiori e verde":"flori și grădină",
+ "cancelleria":"papetărie",
+ "manutenzione":"întreținere",
+ "arredi":"mobilier",
+ "libri":"cărți",
  "Altre voci":"Alte poziții",
  "Le spese piccole sono raggruppate nella voce «Varie»":"Cheltuielile mici sunt puse împreună în poziția «Varie»"},
 en:{"Sì, modifica":"Yes, edit it",
  "Conferma":"Confirm",
+ "Energia elettrica":"Electricity",
+ "Gas e riscaldamento":"Gas and heating",
+ "Servizio idrico":"Water supply",
+ "Acqua potabile":"Drinking water",
+ "Telefono e internet":"Phone and internet",
+ "Affitto della sede":"Rent of the premises",
+ "Assicurazioni":"Insurance",
+ "Spese bancarie e postali":"Bank and postal charges",
+ "Tassa sui rifiuti":"Waste tax",
+ "Viaggi e trasferte":"Travel",
+ "Occorrente per la Santa Cena":"Supplies for the Lord's Supper",
+ "Pulizia della sede":"Cleaning of the premises",
+ "Beneficenza e aiuti":"Charity and assistance",
+ "Aiuto a {n}":"Help for {n}",
+ "Aiuto ad {n}":"Help for {n}",
+ "Prodotti per la pulizia e l'igiene":"Cleaning and hygiene products",
+ "Materiale per la tavola e il ristoro":"Tableware and refreshments",
+ "Materiale audio e tecnico":"Audio and technical equipment",
+ "Fiori e cura del verde":"Flowers and garden care",
+ "Cancelleria e stampa":"Stationery and printing",
+ "Manutenzione della sede":"Maintenance of the premises",
+ "Arredi":"Furniture",
+ "Libri e letteratura":"Books and literature",
+ "Materiale e articoli vari":"Various supplies",
+ "pulizia e igiene":"cleaning and hygiene",
+ "tavola e ristoro":"tableware and refreshments",
+ "audio e tecnica":"audio and technical",
+ "fiori e verde":"flowers and garden",
+ "cancelleria":"stationery",
+ "manutenzione":"maintenance",
+ "arredi":"furniture",
+ "libri":"books",
  "Altre voci":"Other items",
  "Le spese piccole sono raggruppate nella voce «Varie»":"Small expenses are grouped in the «Varie» item"},
 
 es:{"Sì, modifica":"Sí, modificar",
  "Conferma":"Confirmación",
+ "Energia elettrica":"Electricidad",
+ "Gas e riscaldamento":"Gas y calefacción",
+ "Servizio idrico":"Servicio de agua",
+ "Acqua potabile":"Agua potable",
+ "Telefono e internet":"Teléfono e internet",
+ "Affitto della sede":"Alquiler de la sede",
+ "Assicurazioni":"Seguros",
+ "Spese bancarie e postali":"Gastos bancarios y postales",
+ "Tassa sui rifiuti":"Tasa de basuras",
+ "Viaggi e trasferte":"Viajes y desplazamientos",
+ "Occorrente per la Santa Cena":"Lo necesario para la Santa Cena",
+ "Pulizia della sede":"Limpieza de la sede",
+ "Beneficenza e aiuti":"Beneficencia y ayudas",
+ "Aiuto a {n}":"Ayuda a {n}",
+ "Aiuto ad {n}":"Ayuda a {n}",
+ "Prodotti per la pulizia e l'igiene":"Productos de limpieza e higiene",
+ "Materiale per la tavola e il ristoro":"Material de mesa y refrigerios",
+ "Materiale audio e tecnico":"Material de audio y técnico",
+ "Fiori e cura del verde":"Flores y cuidado del jardín",
+ "Cancelleria e stampa":"Papelería e impresión",
+ "Manutenzione della sede":"Mantenimiento de la sede",
+ "Arredi":"Mobiliario",
+ "Libri e letteratura":"Libros y literatura",
+ "Materiale e articoli vari":"Material y artículos varios",
+ "pulizia e igiene":"limpieza e higiene",
+ "tavola e ristoro":"mesa y refrigerios",
+ "audio e tecnica":"audio y técnica",
+ "fiori e verde":"flores y jardín",
+ "cancelleria":"papelería",
+ "manutenzione":"mantenimiento",
+ "arredi":"mobiliario",
+ "libri":"libros",
  "Altre voci":"Otras partidas",
  "Le spese piccole sono raggruppate nella voce «Varie»":"Los gastos pequeños se agrupan en la partida «Varie»"},
 pt:{"Sì, modifica":"Sim, alterar",
  "Conferma":"Confirmação",
+ "Energia elettrica":"Energia elétrica",
+ "Gas e riscaldamento":"Gás e aquecimento",
+ "Servizio idrico":"Serviço de água",
+ "Acqua potabile":"Água potável",
+ "Telefono e internet":"Telefone e internet",
+ "Affitto della sede":"Aluguel da sede",
+ "Assicurazioni":"Seguros",
+ "Spese bancarie e postali":"Despesas bancárias e postais",
+ "Tassa sui rifiuti":"Taxa do lixo",
+ "Viaggi e trasferte":"Viagens e deslocações",
+ "Occorrente per la Santa Cena":"O necessário para a Santa Ceia",
+ "Pulizia della sede":"Limpeza da sede",
+ "Beneficenza e aiuti":"Beneficência e ajudas",
+ "Aiuto a {n}":"Ajuda para {n}",
+ "Aiuto ad {n}":"Ajuda para {n}",
+ "Prodotti per la pulizia e l'igiene":"Produtos de limpeza e higiene",
+ "Materiale per la tavola e il ristoro":"Material de mesa e lanches",
+ "Materiale audio e tecnico":"Material de áudio e técnico",
+ "Fiori e cura del verde":"Flores e cuidado do jardim",
+ "Cancelleria e stampa":"Papelaria e impressão",
+ "Manutenzione della sede":"Manutenção da sede",
+ "Arredi":"Mobiliário",
+ "Libri e letteratura":"Livros e literatura",
+ "Materiale e articoli vari":"Material e artigos diversos",
+ "pulizia e igiene":"limpeza e higiene",
+ "tavola e ristoro":"mesa e lanches",
+ "audio e tecnica":"áudio e técnica",
+ "fiori e verde":"flores e jardim",
+ "cancelleria":"papelaria",
+ "manutenzione":"manutenção",
+ "arredi":"mobiliário",
+ "libri":"livros",
  "Altre voci":"Outras rubricas",
  "Le spese piccole sono raggruppate nella voce «Varie»":"As despesas pequenas ficam juntas na rubrica «Varie»"}
 };
