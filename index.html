@@ -2372,7 +2372,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='14.5', VERSIONE_DATA='27 settembre 2026';
+const VERSIONE='14.6', VERSIONE_DATA='27 settembre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -3533,10 +3533,10 @@ async function ricevuteListaCondividi(){
   let file;
   try{ file=new File([ricevuteListaPdfBlob()],`Ricevute_${state.settings.church.replace(/\s+/g,'_')}_${today()}.pdf`,{type:'application/pdf'}) }
   catch(e){ console.error(e); toast('Non riesco a creare il PDF'); return }
-  const {rows,tIn,tOut}=ricevuteFiltroAttuale();
-  const text=`${state.settings.church}\nElenco ricevute\n${rows.length} ricevute · Saldo: ${euro(tIn-tOut)}`;
+  /* SOLO IL PDF: con un titolo o un testo insieme, sul Mac «Salva» metteva
+     sul desktop anche un file di testo */
   if(navigator.canShare?.({files:[file]})){
-    try{ await navigator.share({files:[file],title:'Elenco ricevute',text}); return }
+    try{ await navigator.share({files:[file]}); return }
     catch(e){ if(e.name==='AbortError') return }
   }
   if(await saveFile(file)) toast('PDF salvato');
@@ -8055,10 +8055,10 @@ async function personShare(){
   try{
     file=new File([personPdfBlob()],`Estratto_${pv.name.replace(/\s+/g,'_')}.pdf`,{type:'application/pdf'});
   }catch(e){ console.error(e); toast('Non riesco a creare il PDF'); return }
-  const per=pFind(pv.kind,pv.name)||toPerson(pv.name);
-  const text=`${state.settings.church}\nEstratto di ${per.name}\n${pvLabel()}\nTotale: ${euro(personDocs().tot)}`;
+  /* SOLO IL PDF: con un titolo o un testo insieme, sul Mac «Salva» metteva
+     sul desktop anche un file di testo */
   if(navigator.canShare?.({files:[file]})){
-    try{ await navigator.share({files:[file],title:`Estratto ${per.name}`,text}); return }
+    try{ await navigator.share({files:[file]}); return }
     catch(e){ if(e.name==='AbortError') return }
   }
   if(await saveFile(file)) toast('PDF salvato');
@@ -8612,7 +8612,7 @@ function slideSet(){
    /* sotto c'è il riquadro del totale: l'elenco si deve fermare prima, se no
       il totale gli finisce sopra e sborda dal fondo della pagina */
    const bh=170, by=SH-118-bh;
-   const y=sList(s,a.rows,90,250,SW-180,'#4b3f9e','#efecfb',8,false,by-276);
+   const y=sList(s,a.rows,90,250,SW-180,'#4b3f9e','#cbc3ee',8,false,by-276);
    sBigBox(s,90,Math.max(y+26,by),SW-180,bh,t('Totale trasmesso al Campo'),euro(a.tot),'#4b3f9e','#7a5ea8');
    sFoot(s,++np); out.push(s.c);}
 
@@ -8696,7 +8696,7 @@ function slideSet(){
      alla sala. I riquadri si dispongono da soli in base a quanti depositi
      ci sono: uno gigante, due affiancati, tre o quattro a griglia. */
   {const s=slide(),x=s.x;
-   sHead(s,state.settings.church+' · '+t('situazione locale'),t('Saldo della chiesa locale'),d.label,'#0c736f','#14a29c');
+   sHead(s,state.settings.church+' · '+t('situazione locale'),t('Saldo nei depositi'),d.label,'#0c736f','#14a29c');
    /* I SALDI VERI DEI DEPOSITI (regola sua, v14.5): quello che alla fine del
       periodo c'era davvero in banca e in contanti, calcolato come nella Home
       (boxBalance: entrate − uscite − versamenti al Campo), non la sola parte
@@ -8714,7 +8714,7 @@ function slideSet(){
      const t=tinte[i%tinte.length];
      sSaldoBox(s,cx,cy,cw,ch,tn(b.name),euro(b.end||0),t[0],t[1]);
    });
-   if(HTOT) sSaldoBox(s,X0,Y0+H+G,W,HTOT,t('Totale della chiesa locale'),euro(tot),'#22303f','#0f2438');
+   if(HTOT) sSaldoBox(s,X0,Y0+H+G,W,HTOT,t('Totale nei depositi'),euro(tot),'#22303f','#0f2438');
    sFoot(s,++np); out.push(s.c);}
 
   /* 7 · grazie */
@@ -18289,6 +18289,8 @@ ro:{"Sì, modifica":"Da, modifică",
  "Non riesco a preparare il rapporto":"Nu reușesc să pregătesc raportul",
  "Tocca una voce per vedere le ricevute che ci sono dentro.":"Atinge o poziție ca să vezi chitanțele din ea.",
  "in questa voce":"în această poziție",
+ "Saldo nei depositi":"Soldul din depozite",
+ "Totale nei depositi":"Totalul din depozite",
  "Altre voci":"Alte poziții",
  "Le spese piccole sono raggruppate nella voce «Varie»":"Cheltuielile mici sunt puse împreună în poziția «Varie»"},
 en:{"Sì, modifica":"Yes, edit it",
@@ -18330,6 +18332,8 @@ en:{"Sì, modifica":"Yes, edit it",
  "Non riesco a preparare il rapporto":"I cannot prepare the report",
  "Tocca una voce per vedere le ricevute che ci sono dentro.":"Tap an item to see the receipts inside it.",
  "in questa voce":"in this item",
+ "Saldo nei depositi":"Balance in the accounts",
+ "Totale nei depositi":"Total in the accounts",
  "Altre voci":"Other items",
  "Le spese piccole sono raggruppate nella voce «Varie»":"Small expenses are grouped in the «Varie» item"},
 
@@ -18372,6 +18376,8 @@ es:{"Sì, modifica":"Sí, modificar",
  "Non riesco a preparare il rapporto":"No consigo preparar el informe",
  "Tocca una voce per vedere le ricevute che ci sono dentro.":"Toca una partida para ver los recibos que contiene.",
  "in questa voce":"en esta partida",
+ "Saldo nei depositi":"Saldo en los depósitos",
+ "Totale nei depositi":"Total en los depósitos",
  "Altre voci":"Otras partidas",
  "Le spese piccole sono raggruppate nella voce «Varie»":"Los gastos pequeños se agrupan en la partida «Varie»"},
 pt:{"Sì, modifica":"Sim, alterar",
@@ -18413,6 +18419,8 @@ pt:{"Sì, modifica":"Sim, alterar",
  "Non riesco a preparare il rapporto":"Não consigo preparar o relatório",
  "Tocca una voce per vedere le ricevute che ci sono dentro.":"Toca numa rubrica para ver os recibos que contém.",
  "in questa voce":"nesta rubrica",
+ "Saldo nei depositi":"Saldo nos depósitos",
+ "Totale nei depositi":"Total nos depósitos",
  "Altre voci":"Outras rubricas",
  "Le spese piccole sono raggruppate nella voce «Varie»":"As despesas pequenas ficam juntas na rubrica «Varie»"}
 };
