@@ -1130,6 +1130,19 @@ html.tocco .line .l-fundbtn:disabled{background:#f2f4f7;color:var(--muted);curso
 /* anteprima diapositive */
 .slidegrid{display:grid;gap:11px;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr))}
 .slidegrid img{width:100%;border-radius:10px;border:1px solid var(--line);box-shadow:var(--sh);cursor:pointer;display:block;background:#fff}
+.clic-pag{margin-bottom:16px}
+.clic-img{position:relative}
+.clic-img img{width:100%;display:block;border-radius:10px;border:1px solid var(--line);box-shadow:var(--sh);background:#fff}
+.clic-zona{position:absolute;padding:0;margin:0;background:transparent;border:2px dashed rgba(189,43,57,.35);border-radius:8px;cursor:pointer}
+.clic-zona:hover,.clic-zona.on{background:rgba(189,43,57,.10);border:2px solid #bd2b39}
+.clic-lista{margin-top:8px;border:1px solid var(--line);border-radius:12px;background:#fff;overflow:hidden}
+.clic-lista[hidden]{display:none}
+.clic-tit{padding:10px 12px;font-weight:700;background:var(--red-s);color:#8f1f2a}
+.clic-riga{display:flex;gap:10px;align-items:center;width:100%;text-align:left;padding:10px 12px;border:0;border-top:1px solid var(--line);background:#fff;cursor:pointer;font:inherit;color:inherit}
+.clic-riga:hover{background:#f6f8fb}
+.clic-riga .cr-t{flex:1;min-width:0}
+.clic-riga .cr-t small{display:block;color:var(--muted);font-size:12px}
+.clic-riga .cr-v{font-weight:700;white-space:nowrap}
 
 /* foto dei beni · la prima si vede grande appena apri la scheda */
 #assetHero{margin-bottom:13px}
@@ -1503,8 +1516,10 @@ html.tocco .line .l-fundbtn:disabled{background:#f2f4f7;color:var(--muted);curso
       <button class="btn light" onclick="buildDeck()">🖼️ Anteprima</button>
       <button class="btn blue" onclick="churchPdf()">📄 Scarica PDF diapositive</button>
       <button class="btn share" onclick="shareChurch()">📲 Condividi</button>
+      <button class="btn light" onclick="apriRapportoClic()">🔎 Rapporto cliccabile</button>
     </div>
     <div class="slidegrid" id="chThumbs" style="margin-top:14px"></div>
+    <div id="chClic" style="margin-top:14px"></div>
   </div>
 
   <div class="card">
@@ -2351,7 +2366,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='14.3', VERSIONE_DATA='27 settembre 2026';
+const VERSIONE='14.4', VERSIONE_DATA='27 settembre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -8134,6 +8149,7 @@ function churchData(){
       const k=chiaveSpesa(l,r);
       const g=locOut[k]||(locOut[k]={tot:0,n:0,desc:new Set(),chi:new Set(),fondo:''});
       g.tot+=v; g.n++;
+      (g.ric||(g.ric=[])).push({r,l});
       const d=String(l.desc||'').trim();
       /* «Acqua da bere» e «acqua da bere» sono la stessa cosa: si tiene la
          prima grafia vista e non si scrive due volte la stessa riga */
@@ -8335,11 +8351,12 @@ function raggruppaUscite(mappa,min){
     let v=perTitolo.get(id);
     if(!v) perTitolo.set(id,v={c,g,tot:0,n:0,desc:new Set(),chi:new Set(),classi:new Set()});
     v.tot+=g.tot; v.n+=g.n;
+    if(g.ric) v.ric=(v.ric||[]).concat(g.ric);
     g.desc.forEach(d=>v.desc.add(d)); g.chi.forEach(x=>v.chi.add(x));
     ((c&&c.classi)||[]).forEach(x=>v.classi.add(x));
   });
   const voci=[...perTitolo.values()]
-    .map(v=>({titolo:v.c?scriviVoce(v):titoloSpesa(v.g),tot:v.tot}))
+    .map(v=>({titolo:v.c?scriviVoce(v):titoloSpesa(v.g),tot:v.tot,ric:v.ric||[]}))
     .filter(v=>Math.abs(v.tot)>.004)
     .sort((a,b)=>b.tot-a.tot);
   const out={};
@@ -8355,6 +8372,11 @@ function raggruppaUscite(mappa,min){
   }
   voci.forEach(v=>{ if(!dentro.has(v)) out[v.titolo]=(out[v.titolo]||0)+v.tot });
   if(varie>.004) out['Varie']=(out['Varie']||0)+varie;
+  /* per il rapporto cliccabile: quali righe di ricevuta stanno in ogni voce.
+     Non enumerabile: chi legge le voci con Object.entries non la vede. */
+  const ric={};
+  voci.forEach(v=>{ const k=dentro.has(v)?'Varie':v.titolo; ric[k]=(ric[k]||[]).concat(v.ric) });
+  Object.defineProperty(out,'ricevute',{value:ric});
   return out;
 }
 /* «del 3° Trimestre 2026», «dell'anno 2026», «di Agosto 2026»: la scritta
@@ -8393,6 +8415,7 @@ function renderChurchPreview(){
     <div><span>Risultato periodo</span><b>${euro(b.tot-c.tot)}</b></div>
     <div><span>Saldo locale a fine periodo</span><b style="color:var(--gold)">${euro(d.endBal)}</b></div></div>`;
   $('chThumbs').innerHTML='';
+  if($('chClic')) $('chClic').innerHTML='';
   deckImgs=null;
 }
 
@@ -8449,6 +8472,8 @@ function sList(s,rows,x0,y0,w,color,soft,maxRows=8,due,alt,scala){
      c'è il riquadro del totale, e senza dirlo l'elenco ci finiva sopra */
   const spazio=alt||(SH-y0-215);
   const rh=Math.max(due?86:64,Math.min(due?160:130,Math.floor(spazio/Math.max(1,list.length))));
+  /* il rapporto cliccabile: ogni riga di uscita si ricorda dov'è sulla pagina */
+  if(due) s.c.zone=(s.c.zone||[]).concat(list.map(([k],i)=>({k,x:x0,y:y0+i*rh,w,h:rh-14})));
   /* i corpi sono i più grandi che ci stanno nella riga: si legge da lontano */
   const fs=rh>112?46:rh>92?41:rh>76?36:32;
   list.forEach(([k,v],i)=>{
@@ -8707,6 +8732,46 @@ function wrapC(x,txt,cx,y,max,lh){
   return y;
 }
 
+/* ══════════════════════════════════════════════════════════
+   IL RAPPORTO CLICCABILE
+   Le stesse diapositive del PDF, qui dentro la sezione Rapporti, ma ogni riga
+   delle uscite si tocca: sotto compaiono le ricevute che ci sono dentro, e
+   ognuna si apre con un tocco. Serve quando in chiesa un fratello chiede di
+   una spesa che sta dentro un raggruppamento. Il PDF resta com'è.
+   ══════════════════════════════════════════════════════════ */
+let clicVoci=[];
+function apriRapportoClic(){
+  const box=$('chClic'); if(!box) return;
+  let cs, ric;
+  try{ ric=churchData().locOut.ricevute||{}; cs=slideSet() }
+  catch(e){ console.error(e); toast(t('Non riesco a preparare il rapporto')); return }
+  clicVoci=[];
+  box.innerHTML=`<div class="note" style="margin-bottom:10px">${esc(t('Tocca una spesa per vedere le ricevute che ci sono dentro.'))}</div>`+
+    cs.map((c,i)=>{
+      const zone=(c.zone||[]).filter(z=>(ric[z.k]||[]).length).map(z=>{
+        const n=clicVoci.push({k:z.k,righe:ric[z.k]})-1;
+        return `<button type="button" class="clic-zona" style="left:${z.x/SW*100}%;top:${z.y/SH*100}%;width:${z.w/SW*100}%;height:${z.h/SH*100}%" onclick="mostraRicClic(this,${i},${n})"></button>`;
+      }).join('');
+      return `<div class="clic-pag"><div class="clic-img"><img src="${c.toDataURL('image/jpeg',.85)}" alt="">${zone}</div><div class="clic-lista" id="clicL${i}" hidden></div></div>`;
+    }).join('');
+  box.scrollIntoView({block:'start',behavior:'smooth'});
+}
+function mostraRicClic(btn,i,n){
+  const el=$('clicL'+i), v=clicVoci[n]; if(!el||!v) return;
+  const giaAperta=!el.hidden&&el.dataset.n===String(n);
+  el.closest('.clic-pag').querySelectorAll('.clic-zona.on').forEach(b=>b.classList.remove('on'));
+  if(giaAperta){ el.hidden=true; return }
+  btn.classList.add('on'); el.dataset.n=n; el.hidden=false;
+  const righe=v.righe.map((x,j)=>({...x,j})).sort((a,b)=>String(a.r.date).localeCompare(String(b.r.date)));
+  const tot=righe.reduce((a,x)=>a+(+x.l.amount||0),0);
+  el.innerHTML=`<div class="clic-tit">${esc(v.k.split(' — ')[0])} · ${euro(tot)}</div>`+
+    righe.map(x=>`<button type="button" class="clic-riga" onclick="vediRicClic(${n},${x.j})">
+      <span class="cr-t"><b>${esc(x.r.name||'—')}</b>${x.l.desc?' · '+esc(x.l.desc):''}
+      <small>${fmtDate(x.r.date)} · ${esc(t('Ricevuta'))} ${esc(x.r.number||'')}</small></span>
+      <span class="cr-v">${euro(+x.l.amount||0)}</span></button>`).join('');
+  el.scrollIntoView({block:'nearest',behavior:'smooth'});
+}
+function vediRicClic(n,j){ const x=clicVoci[n]?.righe[j]; if(x) viewReceipt(x.r.id) }
 let deckImgs=null,deckI=0;
 function buildDeck(){
   if(deckImgs) return deckImgs;
@@ -18181,6 +18246,9 @@ ro:{"Sì, modifica":"Da, modifică",
  "manutenzione":"întreținere",
  "arredi":"mobilier",
  "libri":"cărți",
+ "🔎 Rapporto cliccabile":"🔎 Raport cu legături",
+ "Tocca una spesa per vedere le ricevute che ci sono dentro.":"Atinge o cheltuială ca să vezi chitanțele din ea.",
+ "Non riesco a preparare il rapporto":"Nu reușesc să pregătesc raportul",
  "Altre voci":"Alte poziții",
  "Le spese piccole sono raggruppate nella voce «Varie»":"Cheltuielile mici sunt puse împreună în poziția «Varie»"},
 en:{"Sì, modifica":"Yes, edit it",
@@ -18217,6 +18285,9 @@ en:{"Sì, modifica":"Yes, edit it",
  "manutenzione":"maintenance",
  "arredi":"furniture",
  "libri":"books",
+ "🔎 Rapporto cliccabile":"🔎 Clickable report",
+ "Tocca una spesa per vedere le ricevute che ci sono dentro.":"Tap an expense to see the receipts inside it.",
+ "Non riesco a preparare il rapporto":"I cannot prepare the report",
  "Altre voci":"Other items",
  "Le spese piccole sono raggruppate nella voce «Varie»":"Small expenses are grouped in the «Varie» item"},
 
@@ -18254,6 +18325,9 @@ es:{"Sì, modifica":"Sí, modificar",
  "manutenzione":"mantenimiento",
  "arredi":"mobiliario",
  "libri":"libros",
+ "🔎 Rapporto cliccabile":"🔎 Informe con enlaces",
+ "Tocca una spesa per vedere le ricevute che ci sono dentro.":"Toca un gasto para ver los recibos que contiene.",
+ "Non riesco a preparare il rapporto":"No consigo preparar el informe",
  "Altre voci":"Otras partidas",
  "Le spese piccole sono raggruppate nella voce «Varie»":"Los gastos pequeños se agrupan en la partida «Varie»"},
 pt:{"Sì, modifica":"Sim, alterar",
@@ -18290,6 +18364,9 @@ pt:{"Sì, modifica":"Sim, alterar",
  "manutenzione":"manutenção",
  "arredi":"mobiliário",
  "libri":"livros",
+ "🔎 Rapporto cliccabile":"🔎 Relatório com ligações",
+ "Tocca una spesa per vedere le ricevute che ci sono dentro.":"Toca numa despesa para ver os recibos que contém.",
+ "Non riesco a preparare il rapporto":"Não consigo preparar o relatório",
  "Altre voci":"Outras rubricas",
  "Le spese piccole sono raggruppate nella voce «Varie»":"As despesas pequenas ficam juntas na rubrica «Varie»"}
 };
