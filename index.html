@@ -2372,7 +2372,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='14.9', VERSIONE_DATA='27 settembre 2026';
+const VERSIONE='15.0', VERSIONE_DATA='3 ottobre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -5236,7 +5236,7 @@ function stampaRicevuta(r){
      il formato carta nella finestra di stampa, in «Altre impostazioni».
      Chi vuole il foglio compatto senza pensarci usa 📲 Condividi, che fa il
      PDF con la misura già dentro. */
-  printImage(c.toDataURL('image/jpeg',1),+(c.width/RPX).toFixed(1),+(c.height/RPX).toFixed(1),nome);
+  printImage(c.toDataURL('image/jpeg',1),+((c._w||c.width)/RPX).toFixed(1),+((c._h||c.height)/RPX).toFixed(1),nome);
 }
 function printReceipt(){
   stampaRicevuta(state.receipts.find(x=>x.id===viewId));
@@ -5354,8 +5354,7 @@ function drawReceiptCanvas(r){
   const hd=headOf(r);
   const footH=Math.max(signSpace(signImgOf(hd)),64)+(hd.treasurer?192:152);
   const H=Math.max(Math.round(120*RPX),Math.round(end+60+footH));
-  const c=document.createElement('canvas'); c.width=W; c.height=H;
-  const x=c.getContext('2d');
+  const {c,x}=foglioStampa(W,H);
   x.fillStyle='#fff'; x.fillRect(0,0,W,H);
   paintReceiptBody(x,W,r);
   paintReceiptFoot(x,W,H,r);
@@ -5642,7 +5641,7 @@ function pdfFromPages(pages,quality=1,dati=null){
 }
 function receiptPdf(r){
   const c=drawReceiptCanvas(r);
-  return pdfFromPages([{canvas:c,wmm:+(c.width/RPX).toFixed(1),hmm:+(c.height/RPX).toFixed(1)}],1);
+  return pdfFromPages([{canvas:c,wmm:+((c._w||c.width)/RPX).toFixed(1),hmm:+((c._h||c.height)/RPX).toFixed(1)}],1);
 }
 /* Si condivide SOLO il PDF: niente testo nel messaggio, niente riepilogo.
    Chi riceve trova un allegato e basta, e il testo lo scrive l'utente. */
@@ -7468,6 +7467,28 @@ function fieldReceiptXlsx(d,notes,sent){
 /* ==========================================================
    PAGINE PDF DISEGNATE (A4 a 200 dpi)
    ========================================================== */
+/* ══════════════════════════════════════════════════════════
+   LA QUALITÀ DI STAMPA — la più alta che l'iPad riesce a disegnare
+   Regola sua: ricevute, estratti, rapporti e ogni PDF alla qualità massima.
+   Il disegno resta IDENTICO — stesse misure, stessi caratteri, stesse
+   posizioni —: si ingrandisce soltanto il foglio e con lui il pennello, come
+   già si faceva per le diapositive. I fogli A4 passano da 300 a 400 dpi.
+   Il tetto è quello di Safari su iPad e iPhone: un'immagine più grande di
+   16,7 milioni di pixel esce BIANCA. Si resta un poco sotto, a 16 milioni:
+   un A4 a 400 dpi sono 15,5 milioni; una diapositiva arriva a 2,77 volte lo
+   schermo (5333×2999). Un foglio più grande del solito (una ricevuta molto
+   lunga) scende da solo quel tanto che basta per restare sotto il tetto.
+   ══════════════════════════════════════════════════════════ */
+const STAMPA_MAXPX=16000000;
+function fattoreStampa(w,h,k=400/300){ return Math.min(k,Math.sqrt(STAMPA_MAXPX/(w*h))) }
+function foglioStampa(w,h){
+  const k=fattoreStampa(w,h);
+  const c=document.createElement('canvas');
+  c.width=Math.round(w*k); c.height=Math.round(h*k);
+  const x=c.getContext('2d'); x.scale(c.width/w,c.height/h);
+  c._w=w; c._h=h;   /* la misura «di disegno», quella di prima */
+  return {c,x};
+}
 const PK=300/25.4;      /* punti per millimetro · 300 dpi, qualità di stampa vera */
 /* ══════════════════════════════════════════════════════════
    QUANTO PIÙ GRANDI SONO LE SCRITTE DI TUTTO QUELLO CHE SI STAMPA
@@ -7479,10 +7500,9 @@ const PK=300/25.4;      /* punti per millimetro · 300 dpi, qualità di stampa v
    ══════════════════════════════════════════════════════════ */
 const DOCPIU=1.22;
 function newPage(wmm=210,hmm=297){
-  const c=document.createElement('canvas');
-  c.width=Math.round(wmm*PK); c.height=Math.round(hmm*PK);
-  const x=c.getContext('2d'); x.fillStyle='#fff'; x.fillRect(0,0,c.width,c.height);
-  return {c,x,W:c.width,H:c.height,M:Math.round(15*PK),y:0,wmm,hmm};
+  const W=Math.round(wmm*PK), H=Math.round(hmm*PK);
+  const {c,x}=foglioStampa(W,H); x.fillStyle='#fff'; x.fillRect(0,0,W,H);
+  return {c,x,W,H,M:Math.round(15*PK),y:0,wmm,hmm};
 }
 const FT=(w,s)=>`${w} ${Math.round(s*DOCPIU*PK/3.78)}px -apple-system,Helvetica,Arial,sans-serif`;
 function pgBand(p,title,sub,addr,c1,c2,logoImg){
@@ -10291,7 +10311,8 @@ function assetImportConfirm(){
 
 /* fa una cosa alla risoluzione doppia e poi rimette tutto com'era */
 function inAltaQualita(fn){
-  PXSCALE=2;
+  /* la qualità più alta che l'iPad disegna: 2,77 volte lo schermo */
+  PXSCALE=fattoreStampa(1920,1080,99);
   try{ return fn() } finally { PXSCALE=1 }
 }
 /* ---------- solo i dati dei beni, in un foglio a parte ---------- */
@@ -10335,8 +10356,7 @@ function assetsPages(){
   const vend=list.filter(a=>assetState(a)==='venduto');
 
   function nuova(){
-    const c=document.createElement('canvas'); c.width=AW; c.height=AH;
-    const x=c.getContext('2d');
+    const {c,x}=foglioStampa(AW,AH);
     x.fillStyle='#fff'; x.fillRect(0,0,AW,AH);
     /* intestazione */
     const g=x.createLinearGradient(0,0,AW,Math.round(30*APX));
@@ -10513,8 +10533,7 @@ function anagraficaPages(){
   const tot=scelte.reduce((s,[g])=>s+anaPdfGruppo(g).length,0);
   const out=[]; let p=null, y=0;
   function nuova(){
-    const c=document.createElement('canvas'); c.width=AW; c.height=AH;
-    const x=c.getContext('2d');
+    const {c,x}=foglioStampa(AW,AH);
     x.fillStyle='#fff'; x.fillRect(0,0,AW,AH);
     const g=x.createLinearGradient(0,0,AW,Math.round(30*APX));
     g.addColorStop(0,'#1a5da8'); g.addColorStop(1,'#14498a');
