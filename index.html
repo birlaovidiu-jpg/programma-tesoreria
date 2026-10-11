@@ -2350,7 +2350,7 @@ const DEFAULTS={
     /* la denominazione: la riga che sta sopra al nome della chiesa su ogni
        documento · si cambia in Impostazioni, non qui */
     denom:'Chiesa Avventista del 7\u00b0 Giorno \u00b7 Movimento di Riforma',
-    code:'CA',address:'Via Piero Della Francesca, 7 - 52010 Capolona AR',
+    code:'CA',address:'',
     churchMail:'',fieldMail:'',treasurer:'',year:new Date().getFullYear(),nextReceipt:1,contribRate:25,
     /* quante cifre ha il progressivo: 3 => 001, 2 => 01 · logo e firma della chiesa */
     numPad:3,signature:'',logo:'',autoBackup:false,
@@ -2388,7 +2388,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='15.2', VERSIONE_DATA='11 ottobre 2026';
+const VERSIONE='15.3', VERSIONE_DATA='11 ottobre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -11245,9 +11245,7 @@ async function autoBackupTick(subito){
    localStorage (per dispositivo). Browser vuoto = niente da aggiornare:
    la versione si segna e basta. Sta sotto la schermata di blocco (z-index). */
 const NOVITA=[
-  'Finestrina di aggiornamento: ogni volta che il programma cambia versione compare questa, con «OK» e la «i» per leggere le novità.',
-  'Se il browser viene svuotato (cancella cronologia e dati dei siti) il programma se ne accorge e propone di riprendere i dati dal file di backup, anche cercandoli da solo nella cartella (Chrome ed Edge).',
-  'Nessun dato è stato toccato: ricevute, rapporti e impostazioni sono esattamente come prima.'
+  'Tolto dal programma l\'indirizzo di prova (Capolona): adesso l\'indirizzo della chiesa è vuoto finché non lo scrivi tu in Impostazioni. I tuoi dati non cambiano.'
 ];
 function avvisoAggiornamento(){
   let visto=null;
