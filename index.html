@@ -1085,6 +1085,22 @@ html.tocco .line .l-fundbtn:disabled{background:#f2f4f7;color:var(--muted);curso
 }
 #storageAlert b{flex:0 0 auto}
 #storageAlert span{flex:1 1 240px;min-width:0}
+#vuotoAlert{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  background:#eef4fb;border:1px solid #c5d8ee;border-radius:12px;color:#16385c;
+  padding:11px 13px;font-size:12.5px;margin-bottom:12px
+}
+#vuotoAlert b{flex:0 0 auto}
+#aggiorna{position:fixed;inset:0;z-index:150;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(15,36,56,.55)}
+#aggiorna .box{width:min(100%,380px);max-height:86dvh;overflow-y:auto;background:#fff;border-radius:18px;padding:22px 20px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.35);color:#1b2b3a}
+#aggiorna h2{margin:0 0 6px;font-size:19px}
+#aggiorna p{margin:0 0 14px;font-size:14px}
+#aggiorna .riga{display:flex;gap:10px;justify-content:center;align-items:center}
+#aggiorna .ok{flex:1 1 auto;max-width:200px;border:0;border-radius:12px;background:#0f2438;color:#fff;font-size:16px;font-weight:700;padding:12px 18px}
+#aggiorna .info{width:44px;height:44px;border-radius:50%;border:2px solid #0f2438;background:#fff;color:#0f2438;font:italic 700 20px Georgia,serif}
+#aggiorna ul{display:none;text-align:left;margin:14px 0 0;padding:12px 14px 12px 30px;background:#eef4fb;border-radius:12px;font-size:13px;line-height:1.45}
+#aggiorna ul.aperta{display:block}
+#vuotoAlert span{flex:1 1 240px;min-width:0}
 #toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);
   background:var(--ink);color:#fff;padding:11px 18px;border-radius:12px;font-size:13.5px;font-weight:600;
   z-index:90;opacity:0;pointer-events:none;transition:opacity .22s;max-width:88vw;text-align:center;box-shadow:var(--sh2)}
@@ -2372,7 +2388,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='15.0', VERSIONE_DATA='3 ottobre 2026';
+const VERSIONE='15.2', VERSIONE_DATA='11 ottobre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -2653,7 +2669,7 @@ async function caricaStato(){
   let grande=null, veloce=null;
   try{ grande=await idbGet(SKEY) }catch(e){}
   try{ veloce=JSON.parse(localStorage.getItem(KEY)||'null') }catch(e){}
-  if(!grande&&!veloce) return;              /* prima volta in assoluto */
+  if(!grande&&!veloce){ window.__apertoVuoto=true; return }   /* prima volta in assoluto, oppure browser svuotato */
   if(!grande){
     /* si arriva da una versione che scriveva solo in localStorage: la
        contabilita' si trasferisce nell'archivio grande adesso, una volta sola.
@@ -11215,6 +11231,75 @@ async function autoBackupTick(subito){
   }catch(e){ console.error(e) }
   finally{ autoBusy=false }
 }
+/* ---------- BROWSER SVUOTATO: SI RIPRENDE DAL FILE ----------
+   I dati di lavoro stanno nell'archivio del browser, e «Cancella cronologia e
+   dati dei siti» (Safari, Chrome) porta via anche quello. Il file di backup su
+   disco, invece, non dipende dal browser. Quando il programma si apre e non
+   trova NIENTE — prima volta, oppure archivio svuotato — lo dice e offre di
+   riprendere i dati da quel file, con lo stesso controllo di sempre prima di
+   sostituire. Non scrive niente da solo e non tocca nessun dato. */
+/* ---------- FINESTRINA DI AGGIORNAMENTO ----------
+   Quando si apre una versione diversa da quella che questo dispositivo aveva
+   già mostrato, compare una finestrina: «OK» per accettare, la lettera «i»
+   per leggere che cosa è cambiato. Si ricorda la versione già vista in
+   localStorage (per dispositivo). Browser vuoto = niente da aggiornare:
+   la versione si segna e basta. Sta sotto la schermata di blocco (z-index). */
+const NOVITA=[
+  'Finestrina di aggiornamento: ogni volta che il programma cambia versione compare questa, con «OK» e la «i» per leggere le novità.',
+  'Se il browser viene svuotato (cancella cronologia e dati dei siti) il programma se ne accorge e propone di riprendere i dati dal file di backup, anche cercandoli da solo nella cartella (Chrome ed Edge).',
+  'Nessun dato è stato toccato: ricevute, rapporti e impostazioni sono esattamente come prima.'
+];
+function avvisoAggiornamento(){
+  let visto=null;
+  try{ visto=localStorage.getItem('tesoreria_ver_vista') }catch(e){}
+  if(visto===VERSIONE) return;
+  if(window.__apertoVuoto){ try{ localStorage.setItem('tesoreria_ver_vista',VERSIONE) }catch(e){} return }
+  const d=document.createElement('div');
+  d.id='aggiorna';
+  d.innerHTML=`<div class="box" role="dialog" aria-modal="true">
+    <h2>🔄 Aggiornamento</h2>
+    <p>Il programma è stato aggiornato alla versione <b>${esc(VERSIONE)}</b> · ${esc(VERSIONE_DATA)}.</p>
+    <div class="riga"><button class="ok" id="aggOk">OK</button>
+      <button class="info" id="aggInfo" aria-label="Che cosa è cambiato" title="Che cosa è cambiato">i</button></div>
+    <ul id="aggLista">${NOVITA.map(x=>'<li>'+esc(x)+'</li>').join('')}</ul></div>`;
+  document.body.appendChild(d);
+  document.getElementById('aggInfo').onclick=()=>document.getElementById('aggLista').classList.toggle('aperta');
+  document.getElementById('aggOk').onclick=()=>{
+    try{ localStorage.setItem('tesoreria_ver_vista',VERSIONE) }catch(e){}
+    d.remove();
+  };
+}
+function avvisoArchivioVuoto(){
+  if(!window.__apertoVuoto||(state.receipts||[]).length) return;
+  $('vuotoAlert')?.remove();
+  const d=document.createElement('div');
+  d.id='vuotoAlert';
+  d.innerHTML=`<b>📂 Non trovo dati in questo browser</b>
+    <span>Se hai già lavorato col programma, i dati stanno nel file di backup (non nel browser): riprendili da lì. Se è la prima volta, ignora questo avviso.</span>
+    <button class="btn gold sm" onclick="document.getElementById('fileImport').click()">📂 Riprendi dal file</button>
+    ${canPickDir()?'<button class="btn light sm" onclick="riprendiDaCartella()">📁 Cerca nella cartella</button>':''}
+    <button class="btn light sm" onclick="document.getElementById('vuotoAlert').remove()">Ignora</button>`;
+  $('main').prepend(d);
+}
+/* Chrome/Edge: si indica la cartella del backup e il programma prende da solo
+   il file Tesoreria_*.json più recente; poi passa dal solito controllo di
+   «Importare questi dati?», come se il file fosse stato scelto a mano. */
+async function riprendiDaCartella(){
+  try{
+    const dir=await window.showDirectoryPicker({mode:'read',id:'tesoreriaBackup',startIn:'documents'});
+    let ultimo=null;
+    for await(const [nome,h] of dir.entries()){
+      if(h.kind!=='file'||!/^Tesoreria_.*\.json$/i.test(nome)) continue;
+      const f=await h.getFile();
+      if(!ultimo||f.lastModified>ultimo.lastModified) ultimo=f;
+    }
+    if(!ultimo){ alert('In quella cartella non c\'è nessun file di backup (Tesoreria_….json).\n\nScegli la cartella dove salvi di solito i backup.'); return }
+    const dt=new DataTransfer(); dt.items.add(ultimo);
+    const inp=document.getElementById('fileImport');
+    inp.files=dt.files;
+    inp.dispatchEvent(new Event('change'));
+  }catch(e){ if(e&&e.name!=='AbortError') console.error(e) }
+}
 function startAutoBackup(){
   setInterval(()=>autoBackupTick(),60*1000);
   /* quando l'app va in secondo piano o si chiude: ultimo salvataggio */
@@ -11594,6 +11679,7 @@ async function ripristinaArchivio(x){
   return idx.length;
 }
 function dopoImportazione(){
+  $('vuotoAlert')?.remove();
   loadSignImg(); ensureHead(); primeHeadImgs(); refreshLogo(); renderChrome(); renderSign();
   mostraTutteLeRicevute();
   /* LA LINGUA ARRIVA DENTRO IL FILE.
@@ -20007,6 +20093,8 @@ function preparaIcona(){
      sia — è lì che le foto devono comparire. */
   hydrateAttachments().then(n=>{ if(n) refresh() });
   startAutoBackup();
+  try{ avvisoArchivioVuoto() }catch(e){ console.error(e) }
+  try{ avvisoAggiornamento() }catch(e){ console.error(e) }
 })();
 /* presentazione: frecce, spazio, esc e scorrimento col dito */
 document.addEventListener('keydown',e=>{
