@@ -2568,7 +2568,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='15.6', VERSIONE_DATA='25 ottobre 2026';
+const VERSIONE='15.7', VERSIONE_DATA='25 ottobre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -4410,11 +4410,11 @@ $('rpShot')?.addEventListener('change',e=>aggiungiRpAtt(e.target));
    Un allegato cosi' si legge molto meglio della foto e occupa una frazione
    dello spazio: e' il motivo per cui questo pulsante esiste.
    ========================================================== */
-const SCAN_LATO=1600;      /* quanto viene grande la pagina raddrizzata */
-const SCAN_QUALITA=.78;    /* la compressione: il foglio resta netto e pesa poco */
+const SCAN_LATO=2400;      /* quanto viene grande la pagina raddrizzata */
+const SCAN_QUALITA=.85;    /* la compressione: il foglio resta netto e pesa poco */
 const SCAN_MAXPAG=10;      /* quante pagine in una scansione sola */
 let scanStream=null, scanFoto=null, scanQuad=null, scanPagine=[],
-    scanModo='documento', scanOcchio=0, scanPreso=-1;
+    scanModo='documento', scanOcchio=0, scanPreso=-1, scanVivo=null, scanMiss=0;
 
 /* ---------- la finestra ---------- */
 function apriScanner(){
@@ -4470,8 +4470,16 @@ async function scanCamera(){
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)
     return scanSenzaCamera('Questo dispositivo non lascia aprire la fotocamera da dentro il programma.');
   try{
-    scanStream=await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:{ideal:'environment'},width:{ideal:2560},height:{ideal:1440}},audio:false});
+    /* piu' risoluzione possibile (fino a 4K): e' da qui che esce la nitidezza.
+       Il messaggio «vorrebbe accedere alla fotocamera» lo mostra iOS, non il
+       programma: nessuna pagina web lo puo' togliere. */
+    try{
+      scanStream=await navigator.mediaDevices.getUserMedia({
+        video:{facingMode:{ideal:'environment'},width:{ideal:3840},height:{ideal:2160}},audio:false});
+    }catch(e0){
+      if(e0&&e0.name==='NotAllowedError') throw e0;
+      scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});
+    }
   }catch(e){
     console.error(e);
     return scanSenzaCamera(e&&e.name==='NotAllowedError'
@@ -4495,7 +4503,7 @@ function scanSenzaCamera(msg){
 }
 function scanApriFile(){ $('scanFile').click() }
 /* l'occhio: ogni tanto guarda l'inquadratura e ridisegna i bordi trovati */
-function scanOcchioAvvia(){ scanOcchioFerma(); scanOcchio=setInterval(scanGuarda,260) }
+function scanOcchioAvvia(){ scanOcchioFerma(); scanVivo=null; scanMiss=0; scanOcchio=setInterval(scanGuarda,140) }
 function scanOcchioFerma(){ if(scanOcchio){ clearInterval(scanOcchio); scanOcchio=0 } }
 function scanGuarda(){
   const v=$('scanVideo'), c=$('scanBordi');
@@ -4511,7 +4519,12 @@ function scanGuarda(){
   const k=Math.min(rv.width/v.videoWidth,rv.height/v.videoHeight);
   const dx=(rv.left-rc.left)+(rv.width-v.videoWidth*k)/2;
   const dy=(rv.top-rc.top)+(rv.height-v.videoHeight*k)/2;
-  const q=scanTrovaQuad(v,v.videoWidth,v.videoHeight);
+  let q=scanTrovaQuad(v,v.videoWidth,v.videoHeight,200);
+  /* i bordi non tremano: si fa la media con quelli di prima, e se per un
+     attimo il foglio sfugge si tengono i vecchi per qualche istante */
+  if(q){ if(scanVivo) q=q.map((p,i)=>({x:(p.x+scanVivo[i].x)/2,y:(p.y+scanVivo[i].y)/2})); scanVivo=q; scanMiss=0 }
+  else if(scanVivo&&++scanMiss<4) q=scanVivo;
+  else scanVivo=null;
   if(q){
     const P=q.map(p=>({x:dx+p.x*k,y:dy+p.y*k}));
     g.beginPath(); P.forEach((p,i)=>i?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y)); g.closePath();
@@ -4531,7 +4544,7 @@ function scanGuarda(){
 function scanScatta(){
   const v=$('scanVideo');
   if(!v.videoWidth){ toast('La fotocamera non è ancora pronta'); return }
-  const k=Math.min(1,2600/Math.max(v.videoWidth,v.videoHeight));
+  const k=Math.min(1,4000/Math.max(v.videoWidth,v.videoHeight));
   const c=document.createElement('canvas');
   c.width=Math.round(v.videoWidth*k); c.height=Math.round(v.videoHeight*k);
   c.getContext('2d',{willReadFrequently:true}).drawImage(v,0,0,c.width,c.height);
@@ -4539,7 +4552,7 @@ function scanScatta(){
 }
 function scanDallaFoto(c){
   scanFoto=c;
-  scanQuad=scanTrovaQuad(c,c.width,c.height)||scanQuadPieno(c);
+  scanQuad=scanTrovaQuad(c,c.width,c.height,480)||scanQuadPieno(c);
   scanFase('taglio');
   scanFiltro(scanModo);
   scanDisegnaTaglio();
@@ -4570,7 +4583,14 @@ function scanDisegnaTaglio(){
   const g=cv.getContext('2d');
   g.setTransform(dpr,0,0,dpr,0,0);
   g.clearRect(0,0,w,h);
-  g.drawImage(scanFoto,0,0,w,h);
+  /* la foto grande si riduce UNA volta: trascinare un angolo non deve
+     ridisegnare ogni volta quattro milioni di pixel */
+  let sm=scanFoto._sm;
+  if(!sm||sm.width!==Math.round(w*dpr)){
+    sm=document.createElement('canvas'); sm.width=Math.round(w*dpr); sm.height=Math.round(h*dpr);
+    sm.getContext('2d').drawImage(scanFoto,0,0,sm.width,sm.height); scanFoto._sm=sm;
+  }
+  g.drawImage(sm,0,0,w,h);
   const P=scanQuad.map(p=>({x:p.x*k,y:p.y*k}));
   /* quello che sta fuori si scurisce: cosi' si vede subito cosa resta */
   g.beginPath();
@@ -4619,9 +4639,9 @@ function scanDisegnaTaglio(){
    ne prendono i quattro punti estremi: quelli sono gli angoli del foglio.
    Se la macchia non e' abbastanza rettangolare, o e' troppo piccola, si
    risponde «non l'ho trovato» e gli angoli li mette a mano lui. */
-function scanTrovaQuad(src,sw,sh){
+function scanTrovaQuad(src,sw,sh,larg){
   if(!sw||!sh) return null;
-  const W=170, H=Math.max(4,Math.round(W*sh/sw));
+  const W=larg||200, H=Math.max(4,Math.round(W*sh/sw));
   let d;
   try{
     const c=document.createElement('canvas'); c.width=W; c.height=H;
@@ -4629,9 +4649,37 @@ function scanTrovaQuad(src,sw,sh){
     x.drawImage(src,0,0,W,H);
     d=x.getImageData(0,0,W,H).data;
   }catch(e){ return null }
-  const tot=W*H, g=new Uint8Array(tot), hist=new Int32Array(256);
-  for(let i=0,p=0;i<tot;i++,p+=4){ const v=(d[p]*77+d[p+1]*150+d[p+2]*29)>>8; g[i]=v; hist[v]++ }
-  /* Otsu: la soglia che separa meglio il chiaro dallo scuro */
+  const tot=W*H, hist=new Int32Array(256);
+  let f=new Uint8Array(tot);
+  /* il «bianco» di un foglio: il canale PIU' SCURO e' alto (carta bianca o
+     grigia), mentre il legno o un tavolo colorato hanno sempre un canale
+     basso. Conta anche un po' la luminosita' per non confondere l'ombra */
+  for(let i=0,p=0;i<tot;i++,p+=4){
+    const r=d[p], g1=d[p+1], b=d[p+2];
+    const mn=r<g1?(r<b?r:b):(g1<b?g1:b);
+    f[i]=(mn*3+((r*77+g1*150+b*29)>>8))>>2;
+  }
+  /* chiusura: prima si «allarga» il chiaro e poi lo si «restringe» di
+     altrettanto. Le righe di scritto, sottili e scure, spariscono dentro il
+     foglio senza spostare il suo bordo: se no un foglio fitto di testo si
+     spezzerebbe in tante strisce */
+  const ra=Math.max(1,Math.round(W/160));
+  const passa=(sorg,max)=>{
+    const t=new Uint8Array(tot), u=new Uint8Array(tot);
+    for(let y=0;y<H;y++) for(let x=0;x<W;x++){
+      let v=max?0:255;
+      for(let k=-ra;k<=ra;k++){ const xx=x+k<0?0:x+k>W-1?W-1:x+k, s=sorg[y*W+xx]; if(max?s>v:s<v) v=s }
+      t[y*W+x]=v;
+    }
+    for(let y=0;y<H;y++) for(let x=0;x<W;x++){
+      let v=max?0:255;
+      for(let k=-ra;k<=ra;k++){ const yy=y+k<0?0:y+k>H-1?H-1:y+k, s=t[yy*W+x]; if(max?s>v:s<v) v=s }
+      u[y*W+x]=v;
+    }
+    return u;
+  };
+  f=passa(passa(f,true),false);
+  for(let i=0;i<tot;i++) hist[f[i]]++;
   let somma=0; for(let i=0;i<256;i++) somma+=i*hist[i];
   let sB=0,nB=0,meglio=-1,soglia=127;
   for(let i=0;i<256;i++){
@@ -4641,44 +4689,80 @@ function scanTrovaQuad(src,sw,sh){
     const mB=sB/nB, mF=(somma-sB)/nF, v=nB*nF*(mB-mF)*(mB-mF);
     if(v>meglio){ meglio=v; soglia=i }
   }
-  /* la macchia chiara piu' grande */
   const lab=new Int32Array(tot), pila=new Int32Array(tot);
   let piuGrande=0, quale=0, id=0;
   for(let i=0;i<tot;i++){
-    if(g[i]<=soglia||lab[i]) continue;
+    if(f[i]<=soglia||lab[i]) continue;
     id++; let sp=0, n=0; pila[sp++]=i; lab[i]=id;
     while(sp){
       const p=pila[--sp]; n++;
       const px=p%W, py=(p-px)/W;
-      if(px>0   && g[p-1]>soglia && !lab[p-1]){ lab[p-1]=id; pila[sp++]=p-1 }
-      if(px<W-1 && g[p+1]>soglia && !lab[p+1]){ lab[p+1]=id; pila[sp++]=p+1 }
-      if(py>0   && g[p-W]>soglia && !lab[p-W]){ lab[p-W]=id; pila[sp++]=p-W }
-      if(py<H-1 && g[p+W]>soglia && !lab[p+W]){ lab[p+W]=id; pila[sp++]=p+W }
+      if(px>0   && f[p-1]>soglia && !lab[p-1]){ lab[p-1]=id; pila[sp++]=p-1 }
+      if(px<W-1 && f[p+1]>soglia && !lab[p+1]){ lab[p+1]=id; pila[sp++]=p+1 }
+      if(py>0   && f[p-W]>soglia && !lab[p-W]){ lab[p-W]=id; pila[sp++]=p-W }
+      if(py<H-1 && f[p+W]>soglia && !lab[p+W]){ lab[p+W]=id; pila[sp++]=p+W }
     }
     if(n>piuGrande){ piuGrande=n; quale=id }
   }
-  if(!quale||piuGrande<tot*.10) return null;
-  /* i quattro estremi: alto-sinistra, alto-destra, basso-destra, basso-sinistra */
-  let a=1e9,ai=-1,b=-1e9,bi=-1,c1=-1e9,ci=-1,d1=1e9,di=-1;
-  for(let i=0;i<tot;i++){
-    if(lab[i]!==quale) continue;
-    const px=i%W, py=(i-px)/W, s1=px+py, s2=px-py;
-    if(s1<a){ a=s1; ai=i }
-    if(s1>b){ b=s1; bi=i }
-    if(s2>c1){ c1=s2; ci=i }
-    if(s2<d1){ d1=s2; di=i }
+  if(!quale||piuGrande<tot*.08) return null;
+  /* il contorno: per ogni riga il primo e l'ultimo punto, per ogni colonna
+     il primo e l'ultimo */
+  const pts=[];
+  for(let y=0;y<H;y++){
+    let a=-1,b=-1;
+    for(let x=0;x<W;x++) if(lab[y*W+x]===quale){ if(a<0) a=x; b=x }
+    if(a>=0){ pts.push([a,y]); if(b!==a) pts.push([b,y]) }
   }
-  if(ai<0||bi<0||ci<0||di<0) return null;
+  for(let x=0;x<W;x++){
+    let a=-1,b=-1;
+    for(let y=0;y<H;y++) if(lab[y*W+x]===quale){ if(a<0) a=y; b=y }
+    if(a>=0){ pts.push([x,a]); if(b!==a) pts.push([x,b]) }
+  }
+  /* guscio convesso (monotone chain) */
+  pts.sort((p,q)=>p[0]-q[0]||p[1]-q[1]);
+  const cr=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
+  const low=[]; for(const p of pts){ while(low.length>=2&&cr(low[low.length-2],low[low.length-1],p)<=0) low.pop(); low.push(p) }
+  const up=[]; for(let i=pts.length-1;i>=0;i--){ const p=pts[i]; while(up.length>=2&&cr(up[up.length-2],up[up.length-1],p)<=0) up.pop(); up.push(p) }
+  let H2=low.slice(0,-1).concat(up.slice(0,-1));
+  if(H2.length<4) return null;
+  /* si tolgono i vertici che contano meno (il triangolo con i vicini piu'
+     piccolo) finche' ne restano pochi: gli angoli veri restano */
+  const tri=(a,b,c)=>Math.abs(cr(a,b,c))/2;
+  while(H2.length>140){
+    let mi=0, mv=1e18;
+    for(let i=0;i<H2.length;i++){
+      const v=tri(H2[(i+H2.length-1)%H2.length],H2[i],H2[(i+1)%H2.length]);
+      if(v<mv){ mv=v; mi=i }
+    }
+    H2.splice(mi,1);
+  }
+  /* il quadrilatero di area massima dentro il guscio = i quattro angoli */
+  const n=H2.length; let best=-1, Q=null;
+  for(let i=0;i<n;i++) for(let j=i+2;j<n;j++){
+    let k1=-1,a1=0,k2=-1,a2=0;
+    for(let k=i+1;k<j;k++){ const a=tri(H2[i],H2[j],H2[k]); if(a>a1){ a1=a; k1=k } }
+    for(let k=j+1;k<n+i;k++){ const a=tri(H2[i],H2[j],H2[k%n]); if(a>a2){ a2=a; k2=k%n } }
+    if(k1<0||k2<0) continue;
+    if(a1+a2>best){ best=a1+a2; Q=[H2[i],H2[k1],H2[j],H2[k2]] }
+  }
+  if(!Q) return null;
+  /* ordine: alto-sinistra, alto-destra, basso-destra, basso-sinistra */
+  const cx=Q.reduce((s,p)=>s+p[0],0)/4, cy=Q.reduce((s,p)=>s+p[1],0)/4;
+  Q.sort((p,q)=>Math.atan2(p[1]-cy,p[0]-cx)-Math.atan2(q[1]-cy,q[0]-cx));
+  let s0=0; for(let i=1;i<4;i++) if(Q[i][0]+Q[i][1]<Q[s0][0]+Q[s0][1]) s0=i;
+  Q=[Q[s0],Q[(s0+1)%4],Q[(s0+2)%4],Q[(s0+3)%4]];
   const kx=sw/W, ky=sh/H;
-  const pt=i=>({x:((i%W)+.5)*kx,y:(((i-i%W)/W)+.5)*ky});
-  const q=[pt(ai),pt(ci),pt(bi),pt(di)];
-  /* controlli: deve essere grande davvero e deve somigliare a un rettangolo */
-  const area=Math.abs(q.reduce((s,p,i)=>{ const r=q[(i+1)%4]; return s+p.x*r.y-r.x*p.y },0))/2;
-  if(area<sw*sh*.10) return null;
-  if(piuGrande*kx*ky/area<.72) return null;
+  /* un filo verso l'esterno: il contorno trovato sta sui pixel dentro il foglio */
+  const q=Q.map(p=>{
+    let vx=p[0]-cx, vy=p[1]-cy; const l=Math.hypot(vx,vy)||1;
+    return {x:(p[0]+.5+vx/l*.6)*kx,y:(p[1]+.5+vy/l*.6)*ky};
+  });
+  const area=best*kx*ky;
+  if(area<sw*sh*.08) return null;
+  if(piuGrande*kx*ky/area<.62) return null;
   const lato=(i,j)=>Math.hypot(q[i].x-q[j].x,q[i].y-q[j].y);
   const corto=Math.min(lato(0,1),lato(1,2),lato(2,3),lato(3,0));
-  if(corto<Math.min(sw,sh)*.20) return null;
+  if(corto<Math.min(sw,sh)*.15) return null;
   return q;
 }
 
@@ -4814,6 +4898,19 @@ function scanRifinisci(cv,modo){
         v=v<0?0:v>255?255:v;
         if(modo==='bn') v=v<118?0:v>176?255:(v-118)*255/58;
         D[o]=D[o+1]=D[o+2]=v;
+      }
+    }
+  }
+  /* un velo di nitidezza: le lettere tornano nette dopo il raddrizzamento */
+  if(modo!=='bn'){
+    const C=new Uint8ClampedArray(D), a=.45, rw=w*4;
+    for(let y=1;y<h-1;y++){
+      let p=y*rw+4;
+      for(let x=1;x<w-1;x++,p+=4){
+        for(let ch=0;ch<3;ch++){
+          const i=p+ch;
+          D[i]=C[i]*(1+4*a)-a*(C[i-4]+C[i+4]+C[i-rw]+C[i+rw]);
+        }
       }
     }
   }
@@ -11449,7 +11546,9 @@ async function autoBackupTick(subito){
    localStorage (per dispositivo). Browser vuoto = niente da aggiornare:
    la versione si segna e basta. Sta sotto la schermata di blocco (z-index). */
 const NOVITA=[
-  'Rapporto da presentare in chiesa: ora puoi scegliere cosa presentare — il rapporto, l\'Analisi, o tutti e due. L\'Analisi segue il periodo scelto e, a tua scelta, solo Locale o solo Campo: diapositive 16:9 con il grafico mese per mese, le torte per categoria con la legenda dei colori e l\'andamento fra gli anni.'
+  'Scansione documento: il foglio viene riconosciuto molto meglio (distingue la carta bianca dal tavolo, anche di legno o con la luce sbagliata) e molto più in fretta.',
+  'La pagina scansionata è più nitida: risoluzione più alta, testo rinforzato, carta riportata al bianco.',
+  'Il permesso della fotocamera lo chiede iPad/iPhone, non il programma: per non vederlo più vai in Safari, tocca «aA» nella barra → Impostazioni sito web → Fotocamera → Consenti.'
 ];
 function avvisoAggiornamento(){
   let visto=null;
