@@ -2571,7 +2571,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='15.9', VERSIONE_DATA='25 ottobre 2026';
+const VERSIONE='16.0', VERSIONE_DATA='25 ottobre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -11585,8 +11585,7 @@ async function autoBackupTick(subito){
    localStorage (per dispositivo). Browser vuoto = niente da aggiornare:
    la versione si segna e basta. Sta sotto la schermata di blocco (z-index). */
 const NOVITA=[
-  'Analisi · scegliendo la destinazione «Locale» (o «Campo») l\'elenco delle categorie mostra solo le casse di quella destinazione, senza più le altre (per esempio Progetto Casentino).',
-  'Sotto i filtri compare la riga «Casse incluse» con le casse che fanno parte della destinazione scelta.'
+  'Analisi · le casse sono tutte selezionate: tocca una cassa per toglierla dall\'analisi, toccala di nuovo per rimetterla. «Tutte» le riseleziona tutte insieme.'
 ];
 function avvisoAggiornamento(){
   let visto=null;
@@ -19566,10 +19565,10 @@ Object.keys(TRAD16).forEach(l=>{
 });
 
 const TRAD_CASSE={
-ro:{'Casse incluse':'Fonduri incluse','Nessuna cassa':'Niciun fond'},
-en:{'Casse incluse':'Funds included','Nessuna cassa':'No fund'},
-es:{'Casse incluse':'Cajas incluidas','Nessuna cassa':'Ninguna caja'},
-pt:{'Casse incluse':'Caixas incluídas','Nessuna cassa':'Nenhuma caixa'}
+ro:{'Casse incluse':'Fonduri incluse','Nessuna cassa':'Niciun fond','Almeno una cassa deve restare selezionata':'Cel puțin un fond trebuie să rămână selectat'},
+en:{'Casse incluse':'Funds included','Nessuna cassa':'No fund','Almeno una cassa deve restare selezionata':'At least one fund must stay selected'},
+es:{'Casse incluse':'Cajas incluidas','Nessuna cassa':'Ninguna caja','Almeno una cassa deve restare selezionata':'Al menos una caja debe quedar seleccionada'},
+pt:{'Casse incluse':'Caixas incluídas','Nessuna cassa':'Nenhuma caixa','Almeno una cassa deve restare selezionata':'Pelo menos uma caixa deve ficar selecionada'}
 };
 Object.keys(TRAD_CASSE).forEach(l=>{
   const d=TRAD[l]||(TRAD[l]={});
@@ -20281,7 +20280,7 @@ function anPaintFiltri(){
   pn.hidden=!AN.catAperta;
   if(AN.catAperta){
     pn.innerHTML=`<div class="an-chips"><button class="${nc?'':'on'}" onclick="anCatTutte()">${esc(t('Tutte'))}</button>`
-      +AN.nomiCat.map((n,i)=>okDest&&!okDest.has(n)?'':`<button class="${AN.cat.has(n)?'on':''}" onclick="anCat(${i})">${esc(anNome(n))}</button>`).join('')+'</div>';
+      +AN.nomiCat.map((n,i)=>okDest&&!okDest.has(n)?'':`<button class="${!nc||AN.cat.has(n)?'on':''}" onclick="anCat(${i})">${esc(anNome(n))}</button>`).join('')+'</div>';
   }
   /* con una destinazione scelta si vede quali casse ne fanno parte */
   const cs=$('anCasseSel');
@@ -20319,12 +20318,29 @@ function anTipo(v){ AN.tipo=v; anCambiato() }
 const anConDest=()=>(state.funds||[]).some(f=>f&&(f.dest==='Locale'||f.dest==='Campo'));
 function anDest(v){
   AN.dest=v;
-  /* una categoria scelta che non fa parte della nuova destinazione si toglie */
-  if(v){ const ok=new Set(anCasseDest(v)); AN.cat=new Set([...AN.cat].filter(n=>ok.has(n))) }
+  /* cambiando destinazione si riparte con tutte le casse selezionate */
+  AN.cat=new Set();
   anCambiato();
 }
 function anCatApri(){ AN.catAperta=!AN.catAperta; anPaintFiltri() }
-function anCat(i){ const n=AN.nomiCat[i]; if(n===undefined) return; AN.cat.has(n)?AN.cat.delete(n):AN.cat.add(n); anCambiato() }
+/* le casse partono tutte selezionate (AN.cat vuoto = tutte): un tocco ne
+   toglie una dall'analisi, un altro tocco la rimette. Quando le toglie tutte
+   tranne una, l'ultima non si puo' togliere. Rimesse tutte, si torna a «tutte». */
+function anCat(i){
+  const n=AN.nomiCat[i]; if(n===undefined) return;
+  const lista=AN.dest?anCasseDest(AN.dest):AN.nomiCat;
+  if(!AN.cat.size){
+    if(lista.length<2) return;
+    AN.cat=new Set(lista.filter(x=>x!==n));
+  }else if(AN.cat.has(n)){
+    if(AN.cat.size===1){ toast(t('Almeno una cassa deve restare selezionata')); return }
+    AN.cat.delete(n);
+  }else{
+    AN.cat.add(n);
+    if(lista.every(x=>AN.cat.has(x))) AN.cat=new Set();
+  }
+  anCambiato();
+}
 function anCatTutte(){ AN.cat=new Set(); anCambiato() }
 function anIntervallo(){
   AN.da=$('anDa').value||''; AN.a=$('anA').value||'';
