@@ -2568,7 +2568,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='15.7', VERSIONE_DATA='25 ottobre 2026';
+const VERSIONE='15.8', VERSIONE_DATA='25 ottobre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -7023,7 +7023,7 @@ function renderReports(primoIngresso){
   if(!$('rpMonth').options.length){
     $('rpMonth').innerHTML=MONTHS.map((n,i)=>`<option value="${i+1}">${meseM(i)}</option>`).join('');
     $('rpYear').value=state.settings.year;
-    setChPeriod('quarter');
+    chRipristinaSel();
     posizionaMeseRapporto();
   }else if(primoIngresso) posizionaMeseRapporto();
   renderReport(); renderChurchPreview(); renderTx();
@@ -8395,6 +8395,41 @@ const chYears=()=>{
   return [...ys].filter(Boolean).sort().reverse();
 };
 function paintChPills(){document.querySelectorAll('#chPills button').forEach(b=>b.classList.toggle('active',b.dataset.p===chPeriod))}
+/* ---------- L'ULTIMA SELEZIONE SI RICORDA ----------
+   Periodo, date, «raggruppa uscite sotto» e (dove c'è) cosa presentare: ogni
+   volta che cambiano si tengono da parte su questo dispositivo, e riaprendo i
+   Rapporti si riparte da lì invece che dal trimestre di oggi. Se il periodo
+   ricordato non esiste più si ripiega sulla proposta di sempre. */
+const CHSELKEY='tesoreria_rapporti_selezione';
+let chSelPronto=false;
+function chSalvaSel(){
+  if(!chSelPronto) return;
+  try{
+    const o={p:chPeriod,f:$('chFrom').value,t:$('chTo').value,min:$('chMin')?$('chMin').value:''};
+    if(typeof chRapp!=='undefined'){ o.rapp=chRapp; o.an=chAn; o.dest=chAnDest }
+    localStorage.setItem(CHSELKEY,JSON.stringify(o));
+  }catch(e){}
+}
+function chRipristinaSel(){
+  let s=null;
+  try{ s=JSON.parse(localStorage.getItem(CHSELKEY)||'null') }catch(e){}
+  const validi=[...document.querySelectorAll('#chPills button')].map(b=>b.dataset.p);
+  chPeriod=s&&validi.includes(s.p)?s.p:'quarter';
+  if(s&&chPeriod==='custom'){ $('chFrom').value=s.f||''; $('chTo').value=s.t||'' }
+  paintChPills(); buildChRef();
+  if(s&&chPeriod!=='custom'&&s.f){
+    const k=[...$('chRef').options].findIndex(o=>o.dataset.f===s.f);
+    if(k>=0) $('chRef').selectedIndex=k;
+  }
+  if(s&&$('chMin')&&s.min!=null&&s.min!=='') $('chMin').value=s.min;
+  if(s&&typeof chRapp!=='undefined'){
+    chRapp=s.rapp!==false; chAn=!!s.an;
+    chAnDest=['','Locale','Campo'].includes(s.dest)?s.dest:'';
+    if(!chRapp&&!chAn) chRapp=true;
+  }
+  chSelPronto=true;
+  chRefChange();
+}
 function setChPeriod(p){
   chPeriod=p; paintChPills(); buildChRef(); chRefChange();
 }
@@ -8753,6 +8788,7 @@ function tbl(map){
     ||'<tr><td>Nessun movimento</td><td class="amt">€ 0,00</td></tr>'};
 }
 function renderChurchPreview(){
+  chSalvaSel();
   paintChCasse(); paintChCosa();
   const d=churchData(),a=tbl(d.campo),b=tbl(d.locIn),c=tbl(d.locOut);
   $('chPreview').innerHTML=`<div class="sumbar" style="margin:0">
@@ -11546,9 +11582,7 @@ async function autoBackupTick(subito){
    localStorage (per dispositivo). Browser vuoto = niente da aggiornare:
    la versione si segna e basta. Sta sotto la schermata di blocco (z-index). */
 const NOVITA=[
-  'Scansione documento: il foglio viene riconosciuto molto meglio (distingue la carta bianca dal tavolo, anche di legno o con la luce sbagliata) e molto più in fretta.',
-  'La pagina scansionata è più nitida: risoluzione più alta, testo rinforzato, carta riportata al bianco.',
-  'Il permesso della fotocamera lo chiede iPad/iPhone, non il programma: per non vederlo più vai in Safari, tocca «aA» nella barra → Impostazioni sito web → Fotocamera → Consenti.'
+  'Rapporti · «Rapporto da presentare in chiesa»: il programma ricorda l\'ultima selezione — periodo, date, soglia delle uscite e cosa presentare — e la ritrovi uguale quando riapri, per stampare o presentare.'
 ];
 function avvisoAggiornamento(){
   let visto=null;
