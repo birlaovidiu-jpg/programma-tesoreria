@@ -1608,6 +1608,12 @@ html.tocco .line .l-fundbtn:disabled{background:#f2f4f7;color:var(--muted);curso
     </div>
     <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:12px 0 6px">Casse locali da presentare</label>
     <div class="pills ch-casse" id="chCasse"></div>
+    <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:12px 0 6px">Cosa presentare</label>
+    <div class="pills ch-casse" id="chCosa"></div>
+    <div id="chAnBox" hidden>
+      <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:12px 0 6px">Analisi · destinazione</label>
+      <div class="pills ch-casse" id="chAnDest"></div>
+    </div>
     <div id="chPreview" style="margin-top:12px"></div>
     <div class="toolbar" style="margin-top:12px">
       <button class="btn dark" onclick="openDeck()">▶️ Presenta a schermo intero</button>
@@ -2562,7 +2568,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='15.5', VERSIONE_DATA='25 ottobre 2026';
+const VERSIONE='15.6', VERSIONE_DATA='25 ottobre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -8356,6 +8362,24 @@ function toggleChCassa(i){
   renderChurchPreview();
 }
 /* uscite: le voci piccole finiscono tutte in "Varie", come nel rapporto cartaceo */
+/* COSA SI PRESENTA: il rapporto di sempre, l'Analisi, o tutti e due. L'Analisi
+   segue il periodo scelto qui sopra e, a scelta, solo Locale o solo Campo.
+   Sta in memoria: a ogni apertura si riparte dal rapporto. */
+let chRapp=true, chAn=false, chAnDest='';
+function paintChCosa(){
+  const b=$('chCosa'); if(!b) return;
+  b.innerHTML=`<button type="button" class="${chRapp?'on':''}" onclick="chCosa('r')">${esc(t('Rapporto'))}</button>`
+    +`<button type="button" class="${chAn?'on':''}" onclick="chCosa('a')">📊 ${esc(t('Analisi'))}</button>`;
+  $('chAnBox').hidden=!chAn;
+  $('chAnDest').innerHTML=[['',t('Tutte')],['Locale',t('Locale')],['Campo',t('Campo')]].map(([v,l])=>
+    `<button type="button" class="${chAnDest===v?'on':''}" onclick="chAnDestSet('${v}')">${esc(l)}</button>`).join('');
+}
+function chCosa(k){
+  if(k==='r'){ chRapp=!chRapp; if(!chRapp&&!chAn) chAn=true }
+  else { chAn=!chAn; if(!chAn&&!chRapp) chRapp=true }
+  renderChurchPreview();
+}
+function chAnDestSet(v){ chAnDest=v; renderChurchPreview() }
 function churchData(){
   const f=$('chFrom').value,t=$('chTo').value;
   const min=money($('chMin')?.value)||0;
@@ -8632,7 +8656,7 @@ function tbl(map){
     ||'<tr><td>Nessun movimento</td><td class="amt">€ 0,00</td></tr>'};
 }
 function renderChurchPreview(){
-  paintChCasse();
+  paintChCasse(); paintChCosa();
   const d=churchData(),a=tbl(d.campo),b=tbl(d.locIn),c=tbl(d.locOut);
   $('chPreview').innerHTML=`<div class="sumbar" style="margin:0">
     <div><span>Per il Campo</span><b style="color:var(--violet)">${euro(a.tot)}</b></div>
@@ -8939,6 +8963,10 @@ function slideSet(){
    });
    if(HTOT) sSaldoBox(s,X0,Y0+H+G,W,HTOT,t('Totale nei depositi'),euro(tot),'#22303f','#0f2438');
    sFoot(s,++np); out.push(s.c);}
+
+  /* l'Analisi (e, se il rapporto è spento, la copertina da sola prima di lei) */
+  if(!chRapp){ out.splice(1); np=1 }
+  if(chAn){ const r=anDiapositive(d,np,chAnDest); r.out.forEach(c=>out.push(c)); np=r.np }
 
   /* 7 · grazie */
   {const s=slide(),x=s.x;
@@ -11421,7 +11449,7 @@ async function autoBackupTick(subito){
    localStorage (per dispositivo). Browser vuoto = niente da aggiornare:
    la versione si segna e basta. Sta sotto la schermata di blocco (z-index). */
 const NOVITA=[
-  'Analisi: nuovo filtro Locale / Campo (dove le casse hanno una destinazione), nella tipologia «Entrambe» ora si legge «Tutti», le torte di una sola cassa sono verdi (entrate) o rosse (uscite) e sotto le torte c\'è la legenda dei colori delle categorie.'
+  'Rapporto da presentare in chiesa: ora puoi scegliere cosa presentare — il rapporto, l\'Analisi, o tutti e due. L\'Analisi segue il periodo scelto e, a tua scelta, solo Locale o solo Campo: diapositive 16:9 con il grafico mese per mese, le torte per categoria con la legenda dei colori e l\'andamento fra gli anni.'
 ];
 function avvisoAggiornamento(){
   let visto=null;
@@ -19404,6 +19432,9 @@ Object.keys(TRAD16).forEach(l=>{
 const TRAD_AN={
 ro:{
 'Analisi':'Analiză',
+'Cosa presentare':'Ce se prezintă',
+'Analisi · destinazione':'Analiză · destinație',
+'Rapporto':'Raport',
 'Tutti':'Toate',
 'Destinazione':'Destinație',
 'Locale':'Locală',
@@ -19445,6 +19476,9 @@ ro:{
 },
 en:{
 'Analisi':'Analysis',
+'Cosa presentare':'What to present',
+'Analisi · destinazione':'Analysis · destination',
+'Rapporto':'Report',
 'Tutti':'All',
 'Destinazione':'Destination',
 'Locale':'Local',
@@ -19486,6 +19520,9 @@ en:{
 },
 es:{
 'Analisi':'Análisis',
+'Cosa presentare':'Qué presentar',
+'Analisi · destinazione':'Análisis · destino',
+'Rapporto':'Informe',
 'Tutti':'Todos',
 'Destinazione':'Destino',
 'Locale':'Local',
@@ -19527,6 +19564,9 @@ es:{
 },
 pt:{
 'Analisi':'Análise',
+'Cosa presentare':'O que apresentar',
+'Analisi · destinazione':'Análise · destino',
+'Rapporto':'Relatório',
 'Tutti':'Todos',
 'Destinazione':'Destino',
 'Locale':'Local',
@@ -19957,7 +19997,7 @@ async function anCaricaArchivio(){
   AN.arch=out; AN.archPronto=true;
 }
 /* una riga per ogni riga di ricevuta · mai due volte la stessa ricevuta */
-function anTutte(){
+function anTutte(solo){
   const viste=new Set(), out=[];
   const agg=rs=>{
     for(const r of rs||[]){
@@ -19970,7 +20010,7 @@ function anTutte(){
         out.push({r,l,d,y:+d.slice(0,4),m:+d.slice(5,7)-1,tipo,fund:l.fund||'—',a:Number(l.amount)||0});
     }
   };
-  agg(state.receipts); agg(AN.arch);
+  agg(state.receipts); if(!solo) agg(AN.arch);
   return out;
 }
 function anFiltra(righe,ig){
@@ -20225,7 +20265,7 @@ function anOpzTorta(tp,righe,id,stampa){
   dati.forEach(d=>{ if(d.value/tot<.05){ d.label={show:false}; d.labelLine={show:false} } });
   const el=$(id);
   const h=stampa?stampa.h:(el.clientHeight||340), larg=stampa?stampa.w:(el.clientWidth||360);
-  const cy=Math.round(h*(stampa?.40:.5));
+  const cy=Math.round(h*(stampa?(stampa.senzaLeg?.5:.40):.5));
   const base={animation:!stampa&&!anRidotto(),animationDuration:650,animationEasing:'cubicOut',textStyle:{fontFamily:AN_FONT}};
   if(!dati.length) return {...base,series:[],legend:{show:false},tooltip:{show:false},
     title:{text:t('Nessun movimento'),left:'center',top:'middle',textStyle:{color:'#9aa4b1',fontSize:14,fontWeight:600}}};
@@ -20236,11 +20276,11 @@ function anOpzTorta(tp,righe,id,stampa){
     tooltip:stampa?{show:false}:{...anTooltip,formatter:p=>
       `${anPallino(p.color)}${esc(p.name)}<div style="font-size:16px;font-weight:800;margin-top:3px">${esc(euro(p.value))}`
       +` <span style="font-weight:600;opacity:.8;font-size:12.5px">· ${Math.round(p.percent*10)/10}%</span></div>`},
-    legend:{show:!!stampa,bottom:0,type:'plain',icon:'circle',itemWidth:9,itemHeight:9,itemGap:stampa?9:12,pageIconSize:10,
+    legend:{show:!!stampa&&!stampa.senzaLeg,bottom:0,type:'plain',icon:'circle',itemWidth:9,itemHeight:9,itemGap:stampa?9:12,pageIconSize:10,
       textStyle:{color:'#41546b',fontSize:12}},
-    series:[{type:'pie',radius:stampa?['42%','62%']:larg<420?['40%','58%']:['44%','68%'],center:['50%',cy],avoidLabelOverlap:true,
+    series:[{type:'pie',radius:stampa?(stampa.raggio||['42%','62%']):larg<420?['40%','58%']:['44%','68%'],center:['50%',cy],avoidLabelOverlap:true,
       itemStyle:{borderRadius:7,borderColor:'#fff',borderWidth:2},
-      label:{show:true,position:'outside',color:'#41546b',fontSize:12,fontWeight:700,
+      label:{show:!(stampa&&stampa.senzaLeg),position:'outside',color:'#41546b',fontSize:12,fontWeight:700,
         formatter:p=>p.percent>=5?Math.round(p.percent)+'%':''},
       labelLine:{length:8,length2:6,smooth:true},
       emphasis:{scaleSize:7,itemStyle:{shadowBlur:14,shadowColor:'rgba(22,32,44,.25)'}},
@@ -20370,14 +20410,14 @@ function anRiepCat(righe){
 }
 
 /* ---------- PDF ---------- */
-function anImmagine(opz,w,h){
+function anImmagine(opz,w,h,ratio){
   const d=document.createElement('div');
   d.style.cssText=`position:fixed;left:-99999px;top:0;width:${w}px;height:${h}px`;
   document.body.appendChild(d);
   try{
     const c=echarts.init(d,null,{renderer:'canvas',width:w,height:h});
     c.setOption(opz,true);
-    const cv=c.getRenderedCanvas({pixelRatio:3.5,backgroundColor:'#ffffff'});
+    const cv=c.getRenderedCanvas({pixelRatio:ratio||3.5,backgroundColor:'#ffffff'});
     c.dispose();
     return cv;
   } finally { d.remove() }
@@ -20503,6 +20543,81 @@ function anExcel(){
     saveFile(new File([anExcelBlob()],anNomeFile('xlsx'),
       {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
   }catch(err){ console.error(err); toast(t('Non riesco a creare il file Excel')) }
+}
+
+/* ---------- le diapositive dell'ANALISI nel rapporto da presentare in chiesa ----------
+   16:9 come le altre, grandi per essere lette dall'ultima panca. Prendono il
+   periodo del rapporto (d.f → d.t), le sole ricevute attive e, delle casse
+   locali, solo quelle accese; la destinazione è quella scelta (tutte, Locale,
+   Campo). Il grafico lo disegna ECharts fuori schermo e si incolla sulla
+   diapositiva; i filtri dello schermo Analisi non si toccano (si rimettono). */
+function anConStato(p,fn){
+  const ch=['dest','anni','comp','mesi','tri','da','a','tipo','cat','metr','righe','tutti','sel','ult','ultT','nomiCat'];
+  const sv={}; ch.forEach(k=>{ sv[k]=AN[k] });
+  Object.assign(AN,p);
+  try{ return fn() } finally { Object.assign(AN,sv) }
+}
+function anDiapositive(d,np,dest){
+  const out=[];
+  const righe=anTutte(true).filter(x=>!(x.l.dest==='Locale'&&typeof chCassaOn==='function'&&!chCassaOn(x.l)));
+  const tutti=[...new Set(righe.map(x=>x.y))].sort((a,b)=>a-b);
+  const sub=chLabel()+(dest?' · '+t(dest):'');
+  const K=2.4, rat=Math.min(4,PXSCALE*K);
+  const base={dest:dest||'',anni:new Set(),comp:false,mesi:new Set(),tri:0,da:d.f||'',a:d.t||'',tipo:'',cat:new Set(),
+    metr:'saldo',righe,tutti,sel:null};
+  anConStato(base,()=>{
+    const fr=anFiltra(AN.righe);
+    AN.nomiCat=anCategorie();
+    const e=anSomma(fr,'E'), u=anSomma(fr,'U'), df=anArr(e-u);
+    /* 1 · mese per mese */
+    {const s=slide();
+     sHead(s,t('Analisi'),t('Entrate e uscite per mese'),sub,'#8a7fd6','#584ab5');
+     const W=560,G=30;
+     sBigBox(s,90,225,W,170,t('Totale entrate'),euro(e),'#0f7a4a','#0a5c37');
+     sBigBox(s,90+W+G,225,W,170,t('Totale uscite'),euro(u),'#bd2b39','#8f1f2a');
+     sBigBox(s,90+2*(W+G),225,W,170,t('Differenza'),(df>0?'+':'')+euro(df),df<0?'#bd2b39':'#2c5a86',df<0?'#8f1f2a':'#1d3b56');
+     const cw=1740, ch=560, w=Math.round(cw/K), h=Math.round(ch/K);
+     s.x.drawImage(anImmagine(anOpzPrincipale(fr,{w,h}),w,h,rat),90,425,cw,ch);
+     sFoot(s,++np); out.push(s.c)}
+    /* 2 e 3 · per categoria: la torta e, accanto, l'elenco coi colori (la legenda) */
+    ['E','U'].forEach(tp=>{
+      const m=new Map(); fr.forEach(x=>{ if(x.tipo===tp) m.set(x.fund,(m.get(x.fund)||0)+x.a) });
+      const voci=[...m].filter(([k,v])=>v>.004).sort((a,b)=>b[1]-a[1]);
+      if(!voci.length) return;
+      const tot=voci.reduce((a,[,v])=>a+v,0);
+      const s=slide(), x=s.x;
+      sHead(s,t('Analisi'),tp==='E'?t('Entrate per categoria'):t('Uscite per categoria'),sub,
+        tp==='E'?'#0f7a4a':'#bd2b39',tp==='E'?'#0a5c37':'#8f1f2a');
+      const Q=3, lato=740, c=Math.round(lato/Q);
+      x.drawImage(anImmagine(anOpzTorta(tp,fr,'anTortaE',{w:c,h:c,senzaLeg:1,raggio:['46%','80%']}),c,c,Math.min(4,PXSCALE*Q)),90,235,lato,lato);
+      let list=voci.slice(); const MAXR=9;
+      if(list.length>MAXR){ const rest=list.slice(MAXR-1).reduce((a,[,v])=>a+v,0); list=list.slice(0,MAXR-1); list.push([null,rest]) }
+      const x0=900, w=930, y0=245, rh=Math.min(116,Math.floor(720/list.length)), fs=rh>100?48:rh>80?42:rh>66?36:32;
+      list.forEach(([k,v],i)=>{
+        const y=y0+i*rh, mez=y+(rh-12)/2;
+        x.fillStyle=k===null?'#9aa4b1':anColCat(k); roundRect(x,x0,mez-16,32,32,9); x.fill();
+        x.fillStyle='#22303f'; x.font=SF(600,fs); clip(x,k===null?t('Altre voci'):anNome(k),x0+52,mez+fs/3,w-52-330);
+        x.textAlign='right';
+        x.fillStyle='#8a97a6'; x.font=SF(600,Math.round(fs*.78)); x.fillText(Math.round(v/tot*100)+'%',x0+w-300,mez+fs/3);
+        x.fillStyle=tp==='E'?'#0a5c37':'#8f1f2a'; x.font=SF(800,fs); x.fillText(euro(v),x0+w,mez+fs/3);
+        x.textAlign='left';
+      });
+      sFoot(s,++np); out.push(s.c);
+    });
+    /* 4 · l'andamento fra gli anni, se ce n'è più d'uno: stessi mesi del periodo */
+    if(tutti.length>=2){
+      const f=d.f||'', tt=d.t||'', mesi=new Set();
+      if(f&&tt&&f.slice(0,4)===tt.slice(0,4)) for(let i=+f.slice(5,7)-1;i<=+tt.slice(5,7)-1;i++) mesi.add(i);
+      anConStato({mesi},()=>{
+        const s=slide();
+        sHead(s,t('Analisi'),t('Andamento tra anni'),`${t('Differenza')} · ${sub}`,'#8a7fd6','#584ab5');
+        const cw=1740, ch=740, w=Math.round(cw/K), h=Math.round(ch/K);
+        s.x.drawImage(anImmagine(anOpzTrend({w,h}),w,h,rat),90,235,cw,ch);
+        sFoot(s,++np); out.push(s.c);
+      });
+    }
+  });
+  return {out,np};
 }
 
 /* ---------- autotest ----------
