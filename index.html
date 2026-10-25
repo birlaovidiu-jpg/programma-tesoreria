@@ -1281,6 +1281,8 @@ html.tocco .line .l-fundbtn:disabled{background:#f2f4f7;color:var(--muted);curso
 .an-riga{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:15px 24px;align-items:start}
 .an-lab{display:block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
 .an-chips{display:flex;flex-wrap:wrap;gap:6px}
+#anCasseSel{margin-top:10px}
+.an-cs{display:inline-block;background:#eef4fb;border:1px solid #c5d8ee;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:600;color:#16385c}
 .an-chips button,.an-catbtn{border:1px solid var(--line);background:#fff;border-radius:999px;padding:7px 13px;font-size:13px;font-weight:600;
   cursor:pointer;color:var(--ink);transition:background .2s,color .2s,border-color .2s,transform .12s,box-shadow .2s}
 .an-chips button:hover,.an-catbtn:hover{border-color:var(--violet)}
@@ -1654,6 +1656,7 @@ html.tocco .line .l-fundbtn:disabled{background:#f2f4f7;color:var(--muted);curso
       <div><span class="an-lab">Categoria</span><button class="an-catbtn" id="anCatBtn" onclick="anCatApri()"></button></div>
     </div>
     <div id="anCatPanel" class="an-catp" hidden></div>
+    <div id="anCasseSel" hidden></div>
     <div><span class="an-lab">Mese</span><div class="an-chips an-mesi" id="anMesi"></div></div>
     <div class="an-riga">
       <div><span class="an-lab">Trimestre</span><div class="an-chips" id="anTri"></div></div>
@@ -2568,7 +2571,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='15.8', VERSIONE_DATA='25 ottobre 2026';
+const VERSIONE='15.9', VERSIONE_DATA='25 ottobre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -11582,7 +11585,8 @@ async function autoBackupTick(subito){
    localStorage (per dispositivo). Browser vuoto = niente da aggiornare:
    la versione si segna e basta. Sta sotto la schermata di blocco (z-index). */
 const NOVITA=[
-  'Rapporti · «Rapporto da presentare in chiesa»: il programma ricorda l\'ultima selezione — periodo, date, soglia delle uscite e cosa presentare — e la ritrovi uguale quando riapri, per stampare o presentare.'
+  'Analisi · scegliendo la destinazione «Locale» (o «Campo») l\'elenco delle categorie mostra solo le casse di quella destinazione, senza più le altre (per esempio Progetto Casentino).',
+  'Sotto i filtri compare la riga «Casse incluse» con le casse che fanno parte della destinazione scelta.'
 ];
 function avvisoAggiornamento(){
   let visto=null;
@@ -19561,6 +19565,17 @@ Object.keys(TRAD16).forEach(l=>{
   Object.entries(TRAD16[l]).forEach(([k,v])=>{ if(d[k]===undefined) d[k]=v });
 });
 
+const TRAD_CASSE={
+ro:{'Casse incluse':'Fonduri incluse','Nessuna cassa':'Niciun fond'},
+en:{'Casse incluse':'Funds included','Nessuna cassa':'No fund'},
+es:{'Casse incluse':'Cajas incluidas','Nessuna cassa':'Ninguna caja'},
+pt:{'Casse incluse':'Caixas incluídas','Nessuna cassa':'Nenhuma caixa'}
+};
+Object.keys(TRAD_CASSE).forEach(l=>{
+  const d=TRAD[l]||(TRAD[l]={});
+  Object.entries(TRAD_CASSE[l]).forEach(([k,v])=>{ if(d[k]===undefined) d[k]=v });
+});
+
 /* TRAD_AN · le scritte della sezione 📊 Analisi · si aggiungono SOLO dove manca già una traduzione */
 const TRAD_AN={
 ro:{
@@ -20170,6 +20185,14 @@ function anSistemaAnni(){
   if(!AN.anni.size) AN.anni.add(ys.includes(cur)?cur:ys[ys.length-1]);
   if(!AN.comp&&AN.anni.size>1) AN.anni=new Set([Math.max(...AN.anni)]);
 }
+/* le casse che fanno parte di una destinazione (Locale / Campo): quelle che
+   oggi hanno quella destinazione, più quelle che nelle ricevute ce l'hanno avuta */
+function anCasseDest(d){
+  const nomi=[];
+  (state.funds||[]).forEach(f=>{ if(f&&f.name&&f.dest===d&&!nomi.includes(f.name)) nomi.push(f.name) });
+  AN.righe.forEach(x=>{ if(x.l&&x.l.dest===d&&!nomi.includes(x.fund)) nomi.push(x.fund) });
+  return nomi;
+}
 function anCategorie(){
   const nomi=[];
   (state.funds||[]).forEach(f=>{ if(f&&f.name&&!nomi.includes(f.name)) nomi.push(f.name) });
@@ -20254,10 +20277,21 @@ function anPaintFiltri(){
   bt.className='an-catbtn'+(nc?' on':'');
   bt.textContent=(nc===0?t('Tutte le categorie'):nc===1?anNome([...AN.cat][0]):`${nc} ${t('categorie')}`)+(AN.catAperta?' ▴':' ▾');
   const pn=$('anCatPanel');
+  const okDest=AN.dest?new Set(anCasseDest(AN.dest)):null;
   pn.hidden=!AN.catAperta;
   if(AN.catAperta){
     pn.innerHTML=`<div class="an-chips"><button class="${nc?'':'on'}" onclick="anCatTutte()">${esc(t('Tutte'))}</button>`
-      +AN.nomiCat.map((n,i)=>`<button class="${AN.cat.has(n)?'on':''}" onclick="anCat(${i})">${esc(anNome(n))}</button>`).join('')+'</div>';
+      +AN.nomiCat.map((n,i)=>okDest&&!okDest.has(n)?'':`<button class="${AN.cat.has(n)?'on':''}" onclick="anCat(${i})">${esc(anNome(n))}</button>`).join('')+'</div>';
+  }
+  /* con una destinazione scelta si vede quali casse ne fanno parte */
+  const cs=$('anCasseSel');
+  if(cs){
+    if(AN.dest){
+      const l=anCasseDest(AN.dest).filter(n=>!AN.cat.size||AN.cat.has(n));
+      cs.hidden=false;
+      cs.innerHTML=`<span class="an-lab">${esc(t('Casse incluse'))} · ${esc(t(AN.dest))}</span><div class="an-chips">`
+        +(l.length?l.map(n=>`<span class="an-cs">${esc(anNome(n))}</span>`).join(''):`<span class="an-cs">${esc(t('Nessuna cassa'))}</span>`)+'</div>';
+    }else{ cs.hidden=true; cs.innerHTML='' }
   }
   if($('anDa').value!==AN.da) $('anDa').value=AN.da;
   if($('anA').value!==AN.a) $('anA').value=AN.a;
@@ -20283,7 +20317,12 @@ function anMese(i){ AN.mesi.has(i)?AN.mesi.delete(i):AN.mesi.add(i); anCambiato(
 function anTrim(q){ AN.tri=AN.tri===q?0:q; anCambiato() }
 function anTipo(v){ AN.tipo=v; anCambiato() }
 const anConDest=()=>(state.funds||[]).some(f=>f&&(f.dest==='Locale'||f.dest==='Campo'));
-function anDest(v){ AN.dest=v; anCambiato() }
+function anDest(v){
+  AN.dest=v;
+  /* una categoria scelta che non fa parte della nuova destinazione si toglie */
+  if(v){ const ok=new Set(anCasseDest(v)); AN.cat=new Set([...AN.cat].filter(n=>ok.has(n))) }
+  anCambiato();
+}
 function anCatApri(){ AN.catAperta=!AN.catAperta; anPaintFiltri() }
 function anCat(i){ const n=AN.nomiCat[i]; if(n===undefined) return; AN.cat.has(n)?AN.cat.delete(n):AN.cat.add(n); anCambiato() }
 function anCatTutte(){ AN.cat=new Set(); anCambiato() }
