@@ -1296,7 +1296,11 @@ html.tocco .line .l-fundbtn:disabled{background:#f2f4f7;color:var(--muted);curso
 .an-catbtn{display:inline-flex;align-items:center;gap:8px}
 .an-catbtn.on{border-color:var(--violet);color:var(--violet)}
 .an-catp{margin-top:9px;padding:11px;border:1px solid var(--line);border-radius:14px;background:#fafbfd}
-.an-catp[hidden],#anDett[hidden]{display:none}
+.an-catp[hidden],#anDett[hidden],#anLeg[hidden],#anDestBox[hidden]{display:none}
+.an-legc{grid-column:1/-1}
+.an-legl{display:flex;flex-wrap:wrap;gap:8px 18px}
+.an-legl span{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--ink)}
+.an-legl i{width:12px;height:12px;border-radius:4px;flex:0 0 12px}
 .an-fondo{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;border-top:1px solid var(--line);
   padding-top:12px;font-size:12.5px;color:var(--muted)}
 .an-fondo span{flex:1 1 220px;line-height:1.4}
@@ -1640,6 +1644,7 @@ html.tocco .line .l-fundbtn:disabled{background:#f2f4f7;color:var(--muted);curso
     <div class="an-riga">
       <div><span class="an-lab">Anno</span><div class="an-chips" id="anAnni"></div></div>
       <div><span class="an-lab">Tipologia</span><div class="seg" id="anTipo"></div></div>
+      <div id="anDestBox"><span class="an-lab">Destinazione</span><div class="seg" id="anDest"></div></div>
       <div><span class="an-lab">Categoria</span><button class="an-catbtn" id="anCatBtn" onclick="anCatApri()"></button></div>
     </div>
     <div id="anCatPanel" class="an-catp" hidden></div>
@@ -1663,6 +1668,7 @@ html.tocco .line .l-fundbtn:disabled{background:#f2f4f7;color:var(--muted);curso
   <div class="an-due" id="anDue">
     <div class="card"><div class="an-tit"><h3>Entrate per categoria</h3></div><div id="anTortaE" class="an-torta"></div></div>
     <div class="card"><div class="an-tit"><h3>Uscite per categoria</h3></div><div id="anTortaU" class="an-torta"></div></div>
+    <div class="card an-legc" id="anLeg" hidden></div>
   </div>
 
   <div class="card" id="anCardTrend">
@@ -2556,7 +2562,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='15.4', VERSIONE_DATA='25 ottobre 2026';
+const VERSIONE='15.5', VERSIONE_DATA='25 ottobre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -11415,7 +11421,7 @@ async function autoBackupTick(subito){
    localStorage (per dispositivo). Browser vuoto = niente da aggiornare:
    la versione si segna e basta. Sta sotto la schermata di blocco (z-index). */
 const NOVITA=[
-  'Nuova sezione ANALISI nel menu: grafico a colonne con le entrate (verdi) e le uscite (rosse) di tutti i mesi, filtri combinabili (anno, mese, trimestre, intervallo, tipologia, categoria), confronto fra anni, torte per categoria, movimenti che si aprono toccando una colonna, esportazione in PDF e in Excel. Legge solo le ricevute che hai già registrato: i tuoi dati non cambiano.'
+  'Analisi: nuovo filtro Locale / Campo (dove le casse hanno una destinazione), nella tipologia «Entrambe» ora si legge «Tutti», le torte di una sola cassa sono verdi (entrate) o rosse (uscite) e sotto le torte c\'è la legenda dei colori delle categorie.'
 ];
 function avvisoAggiornamento(){
   let visto=null;
@@ -19398,6 +19404,11 @@ Object.keys(TRAD16).forEach(l=>{
 const TRAD_AN={
 ro:{
 'Analisi':'Analiză',
+'Tutti':'Toate',
+'Destinazione':'Destinație',
+'Locale':'Locală',
+'Campo':'Câmp',
+'Legenda delle categorie':'Legenda categoriilor',
 'Entrate e uscite mese per mese: filtra, confronta gli anni e apri i singoli movimenti':'Intrări și ieșiri lună de lună: filtrează, compară anii și deschide fiecare mișcare',
 'Tipologia':'Tipul',
 'Intervallo personalizzato':'Interval personalizat',
@@ -19434,6 +19445,11 @@ ro:{
 },
 en:{
 'Analisi':'Analysis',
+'Tutti':'All',
+'Destinazione':'Destination',
+'Locale':'Local',
+'Campo':'Field',
+'Legenda delle categorie':'Category legend',
 'Entrate e uscite mese per mese: filtra, confronta gli anni e apri i singoli movimenti':'Income and expenses month by month: filter, compare years and open each transaction',
 'Tipologia':'Type',
 'Intervallo personalizzato':'Custom range',
@@ -19470,6 +19486,11 @@ en:{
 },
 es:{
 'Analisi':'Análisis',
+'Tutti':'Todos',
+'Destinazione':'Destino',
+'Locale':'Local',
+'Campo':'Campo',
+'Legenda delle categorie':'Leyenda de las categorías',
 'Entrate e uscite mese per mese: filtra, confronta gli anni e apri i singoli movimenti':'Ingresos y gastos mes a mes: filtra, compara los años y abre cada movimiento',
 'Tipologia':'Tipo',
 'Intervallo personalizzato':'Intervalo personalizado',
@@ -19506,6 +19527,11 @@ es:{
 },
 pt:{
 'Analisi':'Análise',
+'Tutti':'Todos',
+'Destinazione':'Destino',
+'Locale':'Local',
+'Campo':'Campo',
+'Legenda delle categorie':'Legenda das categorias',
 'Entrate e uscite mese per mese: filtra, confronta gli anni e apri i singoli movimenti':'Entradas e saídas mês a mês: filtra, compara os anos e abre cada movimento',
 'Tipologia':'Tipo',
 'Intervallo personalizzato':'Intervalo personalizado',
@@ -19901,12 +19927,12 @@ function refresh(){
    richiama renderAnalisi() e tutto si ricalcola da solo.
    I grafici sono Apache ECharts, incorporato nel file (nessuna rete).
    ========================================================== */
-const AN={anni:new Set(),comp:false,mesi:new Set(),tri:0,da:'',a:'',tipo:'',cat:new Set(),
+const AN={dest:'',anni:new Set(),comp:false,mesi:new Set(),tri:0,da:'',a:'',tipo:'',cat:new Set(),
   metr:'saldo',sel:null,arch:[],archPronto:false,caricando:false,catAperta:false,
   tutti:[],righe:[],nomiCat:[],charts:{},ro:null,dett:[],ult:null,ultT:null};
 const AN_VERDI=['#0a5c37','#1f9d63','#69c294','#a5dbc0'];
 const AN_ROSSI=['#8f1f2a','#d4505c','#e98d96','#f3bfc4'];
-const AN_PAL=['#584ab5','#0f7a4a','#d98a1b','#2c5a86','#bd2b39','#14a3a3','#8a5cc2','#e0662f','#4f8f2f','#c0457f','#6b7787','#a8873f'];
+const AN_PAL=['#584ab5','#0f7a4a','#d98a1b','#2c5a86','#bd2b39','#14a3a3','#8a5cc2','#e0662f','#4f8f2f','#c0457f','#6b7787','#a8873f','#2a8fbd','#9b3b6b','#7a8c2e','#b5651d','#3d6b6b','#d1a21f'];
 const AN_ANNI=['#584ab5','#0f7a4a','#d98a1b','#bd2b39','#2c5a86','#14a3a3','#8a5cc2','#e0662f'];
 const AN_FONT='-apple-system,"SF Pro Text",Helvetica,Arial,sans-serif';
 /* i nomi delle casse che il programma si porta dietro si traducono, quelli scritti da chi lo usa no */
@@ -19953,6 +19979,7 @@ function anFiltra(righe,ig){
   return righe.filter(x=>{
     if(!ig.noTipo&&F.tipo&&x.tipo!==F.tipo) return false;
     if(F.cat.size&&!F.cat.has(x.fund)) return false;
+    if(F.dest&&x.l.dest!==F.dest) return false;
     if(F.mesi.size&&!F.mesi.has(x.m)) return false;
     if(F.tri&&Math.floor(x.m/3)+1!==F.tri) return false;
     if(range){ if(F.da&&x.d<F.da) return false; if(F.a&&x.d>F.a) return false }
@@ -20027,6 +20054,7 @@ function anDescrizione(){
   else p.push([...F.anni].sort((a,b)=>a-b).join(' · '));
   if(F.mesi.size) p.push([...F.mesi].sort((a,b)=>a-b).map(anMeseC).join(', '));
   if(F.tri) p.push(`${F.tri}° ${t('Trimestre')}`);
+  if(F.dest) p.push(t(F.dest));
   p.push(F.tipo==='E'?t('Entrate'):F.tipo==='U'?t('Uscite'):t('Entrate e uscite'));
   p.push(F.cat.size?[...F.cat].map(anNome).join(', '):t('Tutte le categorie'));
   return p.join(' · ');
@@ -20041,8 +20069,13 @@ function anPaintFiltri(){
     `<button class="${AN.mesi.has(i)?'on':''}" onclick="anMese(${i})">${esc(anMeseC(i))}</button>`).join('');
   $('anTri').innerHTML=[1,2,3,4].map(q=>
     `<button class="${AN.tri===q?'on':''}" onclick="anTrim(${q})">${q}° ${esc(t('Trimestre'))}</button>`).join('');
-  $('anTipo').innerHTML=[['',t('Entrambe')],['E',t('Entrate')],['U',t('Uscite')]].map(([v,l])=>
+  $('anTipo').innerHTML=[['',t('Tutti')],['E',t('Entrate')],['U',t('Uscite')]].map(([v,l])=>
     `<button class="${AN.tipo===v?'active':''}" onclick="anTipo('${v}')">${esc(l)}</button>`).join('');
+  /* il filtro Locale/Campo c'è solo dove le casse hanno una destinazione (le chiese) */
+  const cd=anConDest(); if(!cd) AN.dest='';
+  $('anDestBox').hidden=!cd;
+  $('anDest').innerHTML=[['',t('Tutte')],['Locale',t('Locale')],['Campo',t('Campo')]].map(([v,l])=>
+    `<button class="${AN.dest===v?'active':''}" onclick="anDest('${v}')">${esc(l)}</button>`).join('');
   const nc=AN.cat.size;
   const bt=$('anCatBtn');
   bt.className='an-catbtn'+(nc?' on':'');
@@ -20076,6 +20109,8 @@ function anConfronta(){
 function anMese(i){ AN.mesi.has(i)?AN.mesi.delete(i):AN.mesi.add(i); anCambiato() }
 function anTrim(q){ AN.tri=AN.tri===q?0:q; anCambiato() }
 function anTipo(v){ AN.tipo=v; anCambiato() }
+const anConDest=()=>(state.funds||[]).some(f=>f&&(f.dest==='Locale'||f.dest==='Campo'));
+function anDest(v){ AN.dest=v; anCambiato() }
 function anCatApri(){ AN.catAperta=!AN.catAperta; anPaintFiltri() }
 function anCat(i){ const n=AN.nomiCat[i]; if(n===undefined) return; AN.cat.has(n)?AN.cat.delete(n):AN.cat.add(n); anCambiato() }
 function anCatTutte(){ AN.cat=new Set(); anCambiato() }
@@ -20086,7 +20121,7 @@ function anIntervallo(){
 }
 function anMetrica(v){ AN.metr=v; AN.sel=null; anPaintFiltri(); anDisegnaTrend() }
 function anAzzera(){
-  AN.anni=new Set(); AN.comp=false; AN.mesi=new Set(); AN.tri=0; AN.da=''; AN.a=''; AN.tipo=''; AN.cat=new Set();
+  AN.anni=new Set(); AN.comp=false; AN.mesi=new Set(); AN.tri=0; AN.da=''; AN.a=''; AN.tipo=''; AN.dest=''; AN.cat=new Set();
   AN.catAperta=false; AN.metr='saldo'; anCambiato();
 }
 function anCambiato(){ AN.sel=null; anAggiorna() }
@@ -20184,13 +20219,13 @@ function anDisegnaPrincipale(righe){
 function anOpzTorta(tp,righe,id,stampa){
   const m=new Map(); righe.forEach(x=>{ if(x.tipo===tp) m.set(x.fund,(m.get(x.fund)||0)+x.a) });
   const dati=[...m].filter(([k,v])=>v>.004).sort((a,b)=>b[1]-a[1])
-    .map(([k,v])=>({name:anNome(k),key:k,value:anArr(v),itemStyle:{color:anColCat(k)}}));
+    .map(([k,v])=>({name:anNome(k),key:k,value:anArr(v),itemStyle:{color:AN.cat.size===1?(tp==='E'?'#1fa467':'#d4505c'):anColCat(k)}}));
   const tot=anArr(dati.reduce((s,d)=>s+d.value,0));
   /* le fette piccole non hanno l'etichetta (né il filetto): si leggono dalla legenda e dal riquadro */
   dati.forEach(d=>{ if(d.value/tot<.05){ d.label={show:false}; d.labelLine={show:false} } });
   const el=$(id);
   const h=stampa?stampa.h:(el.clientHeight||340), larg=stampa?stampa.w:(el.clientWidth||360);
-  const cy=Math.round(h*(stampa?.40:.43));
+  const cy=Math.round(h*(stampa?.40:.5));
   const base={animation:!stampa&&!anRidotto(),animationDuration:650,animationEasing:'cubicOut',textStyle:{fontFamily:AN_FONT}};
   if(!dati.length) return {...base,series:[],legend:{show:false},tooltip:{show:false},
     title:{text:t('Nessun movimento'),left:'center',top:'middle',textStyle:{color:'#9aa4b1',fontSize:14,fontWeight:600}}};
@@ -20201,7 +20236,7 @@ function anOpzTorta(tp,righe,id,stampa){
     tooltip:stampa?{show:false}:{...anTooltip,formatter:p=>
       `${anPallino(p.color)}${esc(p.name)}<div style="font-size:16px;font-weight:800;margin-top:3px">${esc(euro(p.value))}`
       +` <span style="font-weight:600;opacity:.8;font-size:12.5px">· ${Math.round(p.percent*10)/10}%</span></div>`},
-    legend:{bottom:0,type:stampa?'plain':'scroll',icon:'circle',itemWidth:9,itemHeight:9,itemGap:stampa?9:12,pageIconSize:10,
+    legend:{show:!!stampa,bottom:0,type:'plain',icon:'circle',itemWidth:9,itemHeight:9,itemGap:stampa?9:12,pageIconSize:10,
       textStyle:{color:'#41546b',fontSize:12}},
     series:[{type:'pie',radius:stampa?['42%','62%']:larg<420?['40%','58%']:['44%','68%'],center:['50%',cy],avoidLabelOverlap:true,
       itemStyle:{borderRadius:7,borderColor:'#fff',borderWidth:2},
@@ -20212,7 +20247,18 @@ function anOpzTorta(tp,righe,id,stampa){
       data:dati}]
   };
 }
+/* la legenda dei colori: quale categoria è quale colore (le due torte usano gli stessi) */
+function anPaintLegenda(righe){
+  const m=new Map(); righe.forEach(x=>m.set(x.fund,(m.get(x.fund)||0)+x.a));
+  const voci=[...m].filter(([k,v])=>v>.004).sort((a,b)=>b[1]-a[1]);
+  const box=$('anLeg');
+  box.hidden=AN.cat.size===1||voci.length<2;
+  if(box.hidden) return;
+  box.innerHTML=`<span class="an-lab">${esc(t('Legenda delle categorie'))}</span><div class="an-legl">`
+    +voci.map(([k])=>`<span><i style="background:${anColCat(k)}"></i>${esc(anNome(k))}</span>`).join('')+'</div>';
+}
 function anDisegnaTorte(righe){
+  anPaintLegenda(righe);
   [['anTortaE','E'],['anTortaU','U']].forEach(([id,tp])=>{
     const c=anChart(id); if(!c) return;
     c.resize();
