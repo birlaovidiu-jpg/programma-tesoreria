@@ -2571,7 +2571,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='16.0', VERSIONE_DATA='25 ottobre 2026';
+const VERSIONE='16.1', VERSIONE_DATA='15 novembre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -3937,7 +3937,7 @@ function addLine(l={}){
      non le si assegna una cassa del Campo, cosa che l'elenco impedisce. */
   d.dataset.orig=(l.fund&&destOf(l.fund)==='Campo')?'campo':'nuova';
   d.innerHTML=`
-    <input class="l-desc" placeholder="Descrizione" value="${esc(l.desc||'')}">
+    <input class="l-desc" placeholder="Descrizione" value="${esc(l.desc||'')}" oninput="compilaImporto(this.closest('.line'))">
     <button type="button" class="l-mese" title="I mesi del contributo · toccala per sceglierne anche più di uno"
             data-mesi="${(l.mesi&&l.mesi.length?l.mesi:(Number(l.mese)?[Number(l.mese)]:[])).join(',')}"
             onclick="apriMesi(this)">${esc(etichettaMesi(l.mesi&&l.mesi.length?l.mesi:(Number(l.mese)?[Number(l.mese)]:[])))}</button>
@@ -3952,7 +3952,7 @@ function addLine(l={}){
       ${state.boxes.map(b=>`<option value="${esc(b.name)}"${b.name===l.box?' selected':''}>${esc(tn(b.name))}</option>`).join('')}
     </select>
     <span class="l-dest none">—</span>
-    <input class="l-amt" inputmode="decimal" placeholder="0,00" value="${l.amount?fmtAmt(l.amount):''}" oninput="calcTotal()" onblur="normAmt(this)">
+    <input class="l-amt" inputmode="decimal" placeholder="0,00" value="${l.amount?fmtAmt(l.amount):''}" oninput="this.dataset.auto='';calcTotal()" onblur="normAmt(this)">
     <button class="del" onclick="this.closest('.line').remove();calcTotal()" title="Elimina riga">×</button>`;
   box.appendChild(d);
   /* una cassa del Campo già scritta resta nell'elenco anche se adesso è
@@ -4162,6 +4162,7 @@ function syncLine(sel,dallUtente){
   b.textContent=dest||'—';
   b.className='l-dest '+(dest||'none');
   meseDellaRiga(riga);
+  compilaImporto(riga);
   /* LA TASTIERA NON DEVE SPARIRE NEMMENO QUI.
      Su iPad la tendina della cassa e' una ruota di sistema: mentre gira, la
      tastiera se ne va, e scelta la cassa non torna piu' — bisognava toccare
@@ -4196,6 +4197,27 @@ function meseDellaRiga(riga,forza){
   const anno=String($('rDate')?.value||today()).slice(0,4);
   const m=meseProposto(nome,anno,draft?.id);
   mettiMesi(sel,m?[m]:[]);
+}
+/* L'IMPORTO SI COMPILA DA SOLO SULLE RIGHE DEL CONTRIBUTO.
+   quota (da ✅ Contributo) × mesi scelti × persone: l'intestatario e chi e'
+   scritto dopo un «+» nella descrizione («+Lili» = anche lei, stessi mesi).
+   Si scrive solo se la casella e' vuota o l'aveva scritta il programma: una
+   cifra digitata a mano non si tocca mai, e nemmeno quella di una ricevuta
+   gia' registrata che si riapre. */
+function compilaImporto(riga){
+  const amt=riga?.querySelector('.l-amt'); if(!amt) return;
+  if(amt.value.trim()&&amt.dataset.auto!=='1') return;
+  let v=0;
+  if(riga.classList.contains('conmese')){
+    const mesi=leggiMesi(riga.querySelector('.l-mese')).length;
+    if(mesi){
+      const chi=personeContributo(riga.querySelector('.l-desc')?.value||'',($('rName')?.value||'').trim());
+      v=rate()*mesi*Math.max(1,chi.length);
+    }
+  }
+  if(v>0){ amt.value=fmtAmt(v); amt.dataset.auto='1' }
+  else if(amt.dataset.auto==='1'){ amt.value=''; amt.dataset.auto='' }
+  calcTotal();
 }
 /* i mesi di una casella, letti e scritti */
 const leggiMesi=b=>String(b?.dataset.mesi||'').split(',').map(Number).filter(c=>c>0).sort((a,c)=>a-c);
@@ -4291,13 +4313,13 @@ function giraMese(m){
   if(i<0) l.push(cod); else l.splice(i,1);
   mettiMesi(mesiBtn,l);
   mesiBtn.dataset.scelto=l.length?'1':'';
-  disegnaMesi(); calcTotal();
+  disegnaMesi(); compilaImporto(mesiBtn.closest('.line')); calcTotal();
 }
 function cambiaAnnoMesi(d){
   mesiAnno=Math.max(2000,Math.min(new Date().getFullYear()+1,mesiAnno+d));
   disegnaMesi();
 }
-function svuotaMesi(){ if(!mesiBtn) return; mettiMesi(mesiBtn,[]); mesiBtn.dataset.scelto=''; disegnaMesi(); calcTotal() }
+function svuotaMesi(){ if(!mesiBtn) return; mettiMesi(mesiBtn,[]); mesiBtn.dataset.scelto=''; disegnaMesi(); compilaImporto(mesiBtn.closest('.line')); calcTotal() }
 function chiudiMesi(){ const p=$('mesiPop'); if(p) p.hidden=true; mesiBtn=null }
 document.addEventListener('pointerdown',e=>{
   if(e.target.closest?.('#mesiPop')||e.target.closest?.('.l-mese')) return;
@@ -4308,6 +4330,7 @@ function rinfrescaMesi(){
   document.querySelectorAll('#lines .line').forEach(r=>{
     const sel=r.querySelector('.l-mese');
     if(sel&&!sel.dataset.scelto) { mettiMesi(sel,[]); meseDellaRiga(r) }
+    compilaImporto(r);
   });
 }
 /* le righe bloccate non si contano come «da leggere»: i valori ci sono lo stesso */
@@ -20035,7 +20058,9 @@ function svuotaRicercheIn(root){
 }
 function closeModal(id){
   const m=$(id);
+  try{ if(m.contains(document.activeElement)) document.activeElement.blur() }catch(e){}
   m.classList.remove('show');
+  window.rimisuraSchermo?.();
   svuotaRicercheIn(m);
 }
 document.querySelectorAll('.modal').forEach(m=>{
@@ -20068,9 +20093,18 @@ window.addEventListener('resize',()=>{if($('mView').classList.contains('show'))f
   const vv=window.visualViewport; if(!vv) return;
   const R=document.documentElement;
   let atteso=0;
+  /* C'e' un campo di testo col fuoco? Se no, la tastiera non puo' essere
+     aperta: la finestra deve tornare alta come tutto lo schermo. Quando la
+     ricevuta si salva, il campo sparisce con la finestra e Safari non manda
+     nessun avviso: la misura restava quella «piccola» della tastiera. */
+  const scrive=()=>{ const a=document.activeElement;
+    return !!a&&(a.isContentEditable||(/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&
+      !/^(button|checkbox|radio|submit|file|range|color)$/i.test(a.type||''))) };
   const misura=()=>{
-    R.style.setProperty('--vvh',Math.round(vv.height)+'px');
-    R.style.setProperty('--vvt',Math.round(vv.offsetTop)+'px');
+    const chiusa=!scrive()&&(vv.scale||1)<=1.01;
+    const alt=chiusa?Math.max(vv.height,window.innerHeight):vv.height;
+    R.style.setProperty('--vvh',Math.round(alt)+'px');
+    R.style.setProperty('--vvt',chiusa?'0px':Math.round(vv.offsetTop)+'px');
     /* La finestra arriva davvero in fondo allo schermo, o sotto c'e' la
        tastiera? Serve alla barra dei pulsanti della ricevuta: il bordo di
        sicurezza del telefono ha senso solo nel primo caso, nel secondo sono
@@ -20091,6 +20125,10 @@ window.addEventListener('resize',()=>{if($('mView').classList.contains('show'))f
      Percio' si rimisura anche quando un campo perde il fuoco — la tastiera se
      ne sta andando — e appena il programma ha finito di caricarsi. */
   const dopo=ms=>setTimeout(misura,ms);
+  window.rimisuraSchermo=()=>{ misura(); dopo(60); dopo(250); dopo(600) };
+  /* finche' una finestra e' aperta si rimisura ogni 300 ms: costa niente e
+     la finestra non resta piu' piccola quando la tastiera se ne va */
+  setInterval(()=>{ if(document.querySelector('.modal.show')) misura() },300);
   document.addEventListener('focusout',()=>{ dopo(120); dopo(450) });
   window.addEventListener('pageshow',()=>dopo(60));
   window.addEventListener('load',()=>{ dopo(0); dopo(600) });
