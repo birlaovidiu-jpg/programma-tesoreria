@@ -963,6 +963,30 @@ html.tocco .line .l-fundbtn:disabled{background:#f2f4f7;color:var(--muted);curso
 .contrib-tw thead th:nth-child(1){position:sticky;top:0;z-index:5}
 .contrib-tw thead th:nth-child(2){position:sticky;top:0;left:0;z-index:5}
 @media (max-width:700px){ .contrib-tw{max-height:min(66dvh,620px)} }
+/* CONTRIBUTO · spazio al massimo per le righe.
+   Anno, quota, ricerca e i numeri stanno nello stesso riquadro, stretti:
+   i controlli su una riga, i totali sotto su una riga che va a capo da sola.
+   La tabella prende tutta l'altezza che resta nello schermo. */
+#contrib .card{padding:8px 12px;margin-bottom:8px}
+#contrib .card .grid{grid-template-columns:minmax(86px,.6fr) minmax(86px,.6fr) minmax(150px,1.6fr);gap:8px}
+#contrib .card .field label{font-size:10.5px;margin-bottom:2px}
+#contrib .card .field input,#contrib .card .field select{padding-top:6px;padding-bottom:6px;min-height:36px}
+#contrib .sumbar{display:flex;flex-wrap:wrap;gap:3px 16px;margin:8px 0 0;padding-top:7px;border-top:1px solid var(--line)}
+#contrib .sumbar div{background:none;border:0;padding:0;display:flex;align-items:baseline;gap:5px}
+#contrib .sumbar span{display:inline;font-size:10px}
+#contrib .sumbar b{display:inline;font-size:14px;margin:0}
+#contrib .section-head{margin-bottom:8px}
+/* righe piu' basse: nello stesso schermo ne entrano molte di piu' */
+#contrib .contrib-tw td{padding:4px 4px}
+#contrib .contrib-tw th{padding-left:4px;padding-right:4px}
+#contrib .contrib-tw table{min-width:0}
+#contrib .contrib-tw th{padding-top:7px;padding-bottom:7px;letter-spacing:.02em}
+#contrib .contrib-tw .dot{width:24px;height:24px;font-size:13px}
+#contrib .contrib-tw .dot.ex{width:28px;height:28px}
+#contrib .contrib-tw{max-height:max(320px,calc(100dvh - 235px))}
+@media (max-width:700px){ #contrib .contrib-tw{max-height:max(300px,calc(100dvh - 300px))}
+  #contrib .card .grid{grid-template-columns:1fr 1fr}
+  #contrib .card .grid .field:last-child{grid-column:1/-1} }
 .line.lockrow{background:#f3f5f8;border-color:#cfd8e3;opacity:.95}
 .line.lockrow input,.line.lockrow select{background:#eef2f7;color:#5b6672;cursor:not-allowed}
 .line.lockrow .del{opacity:.35;cursor:not-allowed}
@@ -1551,9 +1575,8 @@ html.tocco .line .l-fundbtn:disabled{background:#f2f4f7;color:var(--muted);curso
       <div class="field"><label>Quota mensile €</label><input id="cRate" inputmode="decimal" onchange="saveRate()"></div>
       <div class="field"><label>Cerca persona</label><span class="cercabox"><input id="qContribTab" placeholder="Nome o cognome…" oninput="renderContrib()"><button type="button" class="cercax" onclick="svuotaCerca('qContribTab')" aria-label="Cancella" title="Cancella">✕</button></span></div>
     </div>
-    <div class="warn" style="margin-top:12px">La colonna <b>Esente</b> serve per chi è stato esonerato dal contributo per decisione della maggioranza: la riga diventa d'ambra e <b>quella persona esce dall'atteso dell'anno</b>. Quello che ha già versato resta contato nel raccolto: si toglie l'obbligo, non i soldi arrivati.</div>
+    <div class="sumbar" id="cTotals"></div>
   </div>
-  <div class="sumbar" id="cTotals"></div>
   <div class="contrib-tw"><table><thead id="cHead"></thead><tbody id="cBody"></tbody></table></div>
 </section>
 
@@ -2571,7 +2594,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='16.2', VERSIONE_DATA='15 novembre 2026';
+const VERSIONE='16.3', VERSIONE_DATA='15 novembre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
