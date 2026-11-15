@@ -2451,8 +2451,8 @@ html.tocco .line .l-fundbtn:disabled{background:#f2f4f7;color:var(--muted);curso
         <div id="scanAvviso" class="scanavviso" hidden></div>
       </div>
       <div id="scanFiltri" class="scanfiltri" hidden>
-        <button type="button" class="btn light sm" data-modo="documento" onclick="scanFiltro('documento')">📄 Documento</button>
         <button type="button" class="btn light sm" data-modo="colore" onclick="scanFiltro('colore')">🎨 Colore</button>
+        <button type="button" class="btn light sm" data-modo="documento" onclick="scanFiltro('documento')">📄 Grigi</button>
         <button type="button" class="btn light sm" data-modo="bn" onclick="scanFiltro('bn')">⬛ Bianco e nero</button>
       </div>
       <div id="scanPagine" class="scanpag"></div>
@@ -2571,7 +2571,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='16.1', VERSIONE_DATA='15 novembre 2026';
+const VERSIONE='16.2', VERSIONE_DATA='15 novembre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -4436,17 +4436,17 @@ $('rpShot')?.addEventListener('change',e=>aggiungiRpAtt(e.target));
    Un allegato cosi' si legge molto meglio della foto e occupa una frazione
    dello spazio: e' il motivo per cui questo pulsante esiste.
    ========================================================== */
-const SCAN_LATO=2400;      /* quanto viene grande la pagina raddrizzata */
-const SCAN_QUALITA=.85;    /* la compressione: il foglio resta netto e pesa poco */
+const SCAN_LATO=4400;      /* quanto viene grande la pagina raddrizzata: massima qualita' */
+const SCAN_QUALITA=.97;    /* la compressione JPEG: quasi senza perdita, massima qualita' */
 const SCAN_MAXPAG=10;      /* quante pagine in una scansione sola */
 let scanStream=null, scanFoto=null, scanQuad=null, scanPagine=[],
-    scanModo='documento', scanOcchio=0, scanPreso=-1, scanVivo=null, scanMiss=0;
+    scanModo='colore', scanOcchio=0, scanPreso=-1, scanVivo=null, scanMiss=0;
 
 /* ---------- la finestra ---------- */
 function apriScanner(){
   if(!draft) return;
   if(draft.attachments.length>=MAXALLEGATI){toast(`Massimo ${MAXALLEGATI} allegati per ricevuta`);return}
-  scanPagine=[]; scanFoto=null; scanQuad=null; scanModo='documento'; scanPreso=-1;
+  scanPagine=[]; scanFoto=null; scanQuad=null; scanModo='colore'; scanPreso=-1;
   $('scanPagine').innerHTML='';
   $('scanEsito').removeAttribute('src');
   $('mScan').classList.add('show');
@@ -4501,7 +4501,7 @@ async function scanCamera(){
        programma: nessuna pagina web lo puo' togliere. */
     try{
       scanStream=await navigator.mediaDevices.getUserMedia({
-        video:{facingMode:{ideal:'environment'},width:{ideal:3840},height:{ideal:2160}},audio:false});
+        video:{facingMode:{ideal:'environment'},width:{ideal:4096},height:{ideal:3072}},audio:false});
     }catch(e0){
       if(e0&&e0.name==='NotAllowedError') throw e0;
       scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});
@@ -4545,7 +4545,7 @@ function scanGuarda(){
   const k=Math.min(rv.width/v.videoWidth,rv.height/v.videoHeight);
   const dx=(rv.left-rc.left)+(rv.width-v.videoWidth*k)/2;
   const dy=(rv.top-rc.top)+(rv.height-v.videoHeight*k)/2;
-  let q=scanTrovaQuad(v,v.videoWidth,v.videoHeight,200);
+  let q=scanTrovaQuad(v,v.videoWidth,v.videoHeight,320);
   /* i bordi non tremano: si fa la media con quelli di prima, e se per un
      attimo il foglio sfugge si tengono i vecchi per qualche istante */
   if(q){ if(scanVivo) q=q.map((p,i)=>({x:(p.x+scanVivo[i].x)/2,y:(p.y+scanVivo[i].y)/2})); scanVivo=q; scanMiss=0 }
@@ -4567,10 +4567,28 @@ function scanGuarda(){
 }
 
 /* ---------- lo scatto ---------- */
-function scanScatta(){
+async function scanScatta(){
   const v=$('scanVideo');
   if(!v.videoWidth){ toast('La fotocamera non è ancora pronta'); return }
-  const k=Math.min(1,4000/Math.max(v.videoWidth,v.videoHeight));
+  /* dove il dispositivo lo permette (Chrome, Android) si prende la FOTO vera,
+     alla risoluzione piena dell'obiettivo, e non un fotogramma del video */
+  try{
+    const tr=scanStream&&scanStream.getVideoTracks()[0];
+    if(tr&&window.ImageCapture){
+      const blob=await new window.ImageCapture(tr).takePhoto();
+      const bm=await createImageBitmap(blob);
+      const rv=v.videoWidth/v.videoHeight, rb=bm.width/bm.height;
+      if(bm.width*bm.height>=v.videoWidth*v.videoHeight&&Math.abs(rv-rb)<.05){
+        const kk=Math.min(1,5200/Math.max(bm.width,bm.height));
+        const cc=document.createElement('canvas');
+        cc.width=Math.round(bm.width*kk); cc.height=Math.round(bm.height*kk);
+        cc.getContext('2d',{willReadFrequently:true}).drawImage(bm,0,0,cc.width,cc.height);
+        try{ bm.close() }catch(e){}
+        return scanDallaFoto(cc);
+      }
+    }
+  }catch(e){ /* niente foto piena: si usa il fotogramma */ }
+  const k=Math.min(1,5200/Math.max(v.videoWidth,v.videoHeight));
   const c=document.createElement('canvas');
   c.width=Math.round(v.videoWidth*k); c.height=Math.round(v.videoHeight*k);
   c.getContext('2d',{willReadFrequently:true}).drawImage(v,0,0,c.width,c.height);
@@ -4578,13 +4596,13 @@ function scanScatta(){
 }
 function scanDallaFoto(c){
   scanFoto=c;
-  scanQuad=scanTrovaQuad(c,c.width,c.height,480)||scanQuadPieno(c);
+  scanQuad=scanTrovaQuad(c,c.width,c.height,900)||scanQuadPieno(c);
   scanFase('taglio');
   scanFiltro(scanModo);
   scanDisegnaTaglio();
 }
 function scanQuadPieno(c){
-  const mx=c.width*.04, my=c.height*.04;
+  const mx=c.width*.01, my=c.height*.01;
   return [{x:mx,y:my},{x:c.width-mx,y:my},{x:c.width-mx,y:c.height-my},{x:mx,y:c.height-my}];
 }
 function scanTuttaFoto(){ if(!scanFoto) return; scanQuad=scanQuadPieno(scanFoto); scanDisegnaTaglio() }
@@ -4676,7 +4694,7 @@ function scanTrovaQuad(src,sw,sh,larg){
     d=x.getImageData(0,0,W,H).data;
   }catch(e){ return null }
   const tot=W*H, hist=new Int32Array(256);
-  let f=new Uint8Array(tot);
+  let f=new Uint8Array(tot), sat=new Uint8Array(tot);
   /* il «bianco» di un foglio: il canale PIU' SCURO e' alto (carta bianca o
      grigia), mentre il legno o un tavolo colorato hanno sempre un canale
      basso. Conta anche un po' la luminosita' per non confondere l'ombra */
@@ -4684,6 +4702,8 @@ function scanTrovaQuad(src,sw,sh,larg){
     const r=d[p], g1=d[p+1], b=d[p+2];
     const mn=r<g1?(r<b?r:b):(g1<b?g1:b);
     f[i]=(mn*3+((r*77+g1*150+b*29)>>8))>>2;
+    const mx=r>g1?(r>b?r:b):(g1>b?g1:b);
+    sat[i]=mx?((mx-mn)*255/mx)|0:0;
   }
   /* chiusura: prima si «allarga» il chiaro e poi lo si «restringe» di
      altrettanto. Le righe di scritto, sottili e scure, spariscono dentro il
@@ -4714,6 +4734,32 @@ function scanTrovaQuad(src,sw,sh,larg){
     sB+=i*hist[i];
     const mB=sB/nB, mF=(somma-sB)/nF, v=nB*nF*(mB-mF)*(mB-mF);
     if(v>meglio){ meglio=v; soglia=i }
+  }
+  /* L'OMBRA SUL FOGLIO NON LO DEVE TAGLIARE.
+     Se un pezzo di foglio e' in ombra (la mano, il telefono) diventa grigio
+     scuro e la soglia lo scambia per tavolo: il foglio verrebbe preso a meta'.
+     Allora si cerca una SECONDA soglia fra tavolo e ombra: se il gruppo di
+     mezzo e' molto piu' chiaro del tavolo, abbastanza grande e NEUTRO (poco
+     colorato, come la carta in ombra e non come il legno), e' foglio in ombra
+     e si include. */
+  {
+    let nA=0,sA=0,sT=0,nT=0,m2=-1,t1=-1;
+    for(let i=0;i<=soglia;i++){ nT+=hist[i]; sT+=i*hist[i] }
+    for(let i=0;i<=soglia;i++){
+      nA+=hist[i]; const nB2=nT-nA; if(!nA||!nB2) continue;
+      sA+=i*hist[i];
+      const mA=sA/nA, mB=(sT-sA)/nB2, v=nA*nB2*(mA-mB)*(mA-mB);
+      if(v>m2){ m2=v; t1=i }
+    }
+    if(t1>=0){
+      let n0=0,s0=0,n1=0,s1=0,sat1=0;
+      for(let i=0;i<tot;i++){
+        const v=f[i];
+        if(v<=t1){ n0++; s0+=v }
+        else if(v<=soglia){ n1++; s1+=v; sat1+=sat[i] }
+      }
+      if(n1>=tot*.03&&n0&&s1/n1>=1.8*Math.max(12,s0/n0)&&sat1/n1<80) soglia=t1;
+    }
   }
   const lab=new Int32Array(tot), pila=new Int32Array(tot);
   let piuGrande=0, quale=0, id=0;
@@ -4890,7 +4936,7 @@ function scanRifinisci(cv,modo){
   const w=cv.width, h=cv.height;
   const g=cv.getContext('2d',{willReadFrequently:true});
   const im=g.getImageData(0,0,w,h), D=im.data;
-  const lungo=72;
+  const lungo=110;
   const bw=Math.max(8,w>=h?lungo:Math.round(lungo*w/h));
   const bh=Math.max(8,w>=h?Math.round(lungo*h/w):lungo);
   const bc=document.createElement('canvas'); bc.width=bw; bc.height=bh;
@@ -4902,10 +4948,14 @@ function scanRifinisci(cv,modo){
     const m=bd[p]>bd[p+1]?bd[p]:bd[p+1];
     L[i]=m>bd[p+2]?m:bd[p+2];
   }
-  L=scanScatola(L,bw,bh,2,true);
+  /* massimo locale (le lettere non tirano giu' la luce) e poi due sfocature
+     in fila: segue anche il bordo netto dell'ombra di una mano senza lasciare
+     aloni scuri sulla carta */
+  L=scanScatola(L,bw,bh,3,true);
+  L=scanScatola(L,bw,bh,3,false);
   L=scanScatola(L,bw,bh,3,false);
   const kx=(bw-1)/(w>1?w-1:1), ky=(bh-1)/(h>1?h-1:1);
-  const nero=modo==='colore'?24:52, bianco=modo==='colore'?246:236;
+  const nero=modo==='colore'?20:52, bianco=modo==='colore'?238:232;
   const scala=255/(bianco-nero);
   let o=0;
   for(let y=0;y<h;y++){
@@ -5042,7 +5092,7 @@ $('scanFile').addEventListener('change',async e=>{
       const i=new Image(); i.onerror=()=>rej(new Error('immagine non valida'));
       i.onload=()=>res(i); i.src=url;
     });
-    const k=Math.min(1,2600/Math.max(im.naturalWidth,im.naturalHeight));
+    const k=Math.min(1,5200/Math.max(im.naturalWidth,im.naturalHeight));
     const c=document.createElement('canvas');
     c.width=Math.round(im.naturalWidth*k); c.height=Math.round(im.naturalHeight*k);
     c.getContext('2d',{willReadFrequently:true}).drawImage(im,0,0,c.width,c.height);

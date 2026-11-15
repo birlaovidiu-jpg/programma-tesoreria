@@ -1,6 +1,6 @@
 # HANDOFF · Tesoreria chiese (programma-tesoreria)
 
-Ultimo aggiornamento: 15 novembre 2026 · Versione 16.1
+Ultimo aggiornamento: 15 novembre 2026 · Versione 16.2
 
 ## Il progetto
 App web a file unico (`index.html` + `sw.js`) per la tesoreria della chiesa. Usata soprattutto su iPad
@@ -21,6 +21,15 @@ mensile, rapporti al Campo, analisi.
    Non sovrascrive cifre digitate a mano (`dataset.auto`) né ricevute già registrate riaperte.
    Test: 1 mese=25, 4 mesi=100, 4 mesi + «+lili»=200.
 3. Versione portata a 16.1.
+
+## v16.2 · Scansione documenti
+- Qualità massima: `SCAN_LATO` 4400, `SCAN_QUALITA` .97, fotocamera ideal 4096x3072, scatto fino a 5200 px;
+  dove c'è `ImageCapture` (Chrome/Android) si usa la foto vera, su iPad il fotogramma video.
+- Default **Colore** (primo pulsante); «Grigi» e «Bianco e nero» restano.
+- Ombre: in `scanRifinisci` stima della luce più fine (110 px, max r3 + due sfocature).
+- Inquadratura: `scanTrovaQuad` a 900 px (live 320) e **seconda soglia** per il foglio in ombra
+  (gruppo neutro, 1.8x più chiaro del tavolo) così l'ombra non taglia il foglio. Test sintetico: angoli esatti.
+- Non provato su iPad reale.
 
 ## Da sapere
 - La cassa «Sede» o «Contributo…» è riconosciuta da `cassaContributoNome`/`cassaContributo`.
