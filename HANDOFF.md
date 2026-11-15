@@ -1,6 +1,6 @@
 # HANDOFF · Tesoreria chiese (programma-tesoreria)
 
-Ultimo aggiornamento: 15 novembre 2026 · Versione 16.3
+Ultimo aggiornamento: 15 novembre 2026 · Versione 16.4
 
 ## Il progetto
 App web a file unico (`index.html` + `sw.js`) per la tesoreria della chiesa. Usata soprattutto su iPad
@@ -37,6 +37,12 @@ mensile, rapporti al Campo, analisi.
 - Tabella: righe più basse, padding ridotto, altezza = tutto lo schermo (`calc(100dvh - 235px)`),
   tutte le colonne (anche Totale ed Esente) entrano a 820 px. Prima 13 righe visibili su iPad, ora 17.
 - CSS tutto sotto `#contrib` (cerca «CONTRIBUTO · spazio al massimo per le righe»).
+
+## v16.4 · Contributo ancora più compatto
+- Titolo + pulsanti (Presentazione, PDF, Condividi) sulla stessa riga, attaccati alla barra blu
+  (`#contrib{margin-top:calc(var(--pad)*-1 + 6px)}`; sottotitolo nascosto).
+- Riga 1: anno · quota · cerca. Riga 2: sei **riquadri** per i numeri (3+3 su telefono).
+- Tabella: 19 righe visibili su iPad (prima 13). Tutto il CSS sotto `#contrib`.
 
 ## Da sapere
 - La cassa «Sede» o «Contributo…» è riconosciuta da `cassaContributoNome`/`cassaContributo`.

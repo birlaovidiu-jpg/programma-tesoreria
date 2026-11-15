@@ -967,15 +967,29 @@ html.tocco .line .l-fundbtn:disabled{background:#f2f4f7;color:var(--muted);curso
    Anno, quota, ricerca e i numeri stanno nello stesso riquadro, stretti:
    i controlli su una riga, i totali sotto su una riga che va a capo da sola.
    La tabella prende tutta l'altezza che resta nello schermo. */
-#contrib .card{padding:8px 12px;margin-bottom:8px}
+#contrib .card{padding:8px 10px;margin-bottom:6px}
 #contrib .card .grid{grid-template-columns:minmax(86px,.6fr) minmax(86px,.6fr) minmax(150px,1.6fr);gap:8px}
 #contrib .card .field label{font-size:10.5px;margin-bottom:2px}
 #contrib .card .field input,#contrib .card .field select{padding-top:6px;padding-bottom:6px;min-height:36px}
-#contrib .sumbar{display:flex;flex-wrap:wrap;gap:3px 16px;margin:8px 0 0;padding-top:7px;border-top:1px solid var(--line)}
-#contrib .sumbar div{background:none;border:0;padding:0;display:flex;align-items:baseline;gap:5px}
-#contrib .sumbar span{display:inline;font-size:10px}
-#contrib .sumbar b{display:inline;font-size:14px;margin:0}
-#contrib .section-head{margin-bottom:8px}
+/* i numeri: sei riquadri in fila, uguali, ognuno con la sua etichetta */
+#contrib .sumbar{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin:8px 0 0;padding:0;border:0}
+#contrib .sumbar div{background:#f7f9fb;border:1px solid var(--line);border-radius:10px;padding:5px 8px;display:flex;flex-direction:column;justify-content:space-between;gap:1px}
+#contrib .sumbar span{display:block;font-size:9px;letter-spacing:.04em;line-height:1.2}
+#contrib .sumbar b{display:block;font-size:15px;margin:0;line-height:1.2}
+#contrib .sumbar small{font-size:9px!important}
+@media (max-width:700px){ #contrib .sumbar{grid-template-columns:repeat(3,minmax(0,1fr))} }
+/* titolo e pulsanti sulla stessa riga, attaccati alla barra blu */
+#contrib{margin-top:calc(var(--pad) * -1 + 6px)}
+#contrib .section-head{align-items:center;flex-wrap:nowrap;margin-bottom:6px;gap:8px}
+#contrib .section-head p{display:none}
+#contrib .section-head h2{font-size:17px;white-space:nowrap}
+#contrib .toolbar{flex-wrap:nowrap;gap:6px}
+#contrib .toolbar .btn{padding:7px 11px;min-height:36px;font-size:13px;white-space:nowrap}
+@media (max-width:560px){
+  #contrib .section-head{flex-wrap:wrap}
+  #contrib .toolbar{width:100%}
+  #contrib .toolbar .btn{flex:1 1 0;padding:7px 4px;font-size:12px}
+}
 /* righe piu' basse: nello stesso schermo ne entrano molte di piu' */
 #contrib .contrib-tw td{padding:4px 4px}
 #contrib .contrib-tw th{padding-left:4px;padding-right:4px}
@@ -983,7 +997,7 @@ html.tocco .line .l-fundbtn:disabled{background:#f2f4f7;color:var(--muted);curso
 #contrib .contrib-tw th{padding-top:7px;padding-bottom:7px;letter-spacing:.02em}
 #contrib .contrib-tw .dot{width:24px;height:24px;font-size:13px}
 #contrib .contrib-tw .dot.ex{width:28px;height:28px}
-#contrib .contrib-tw{max-height:max(320px,calc(100dvh - 235px))}
+#contrib .contrib-tw{max-height:max(320px,calc(100dvh - 215px))}
 @media (max-width:700px){ #contrib .contrib-tw{max-height:max(300px,calc(100dvh - 300px))}
   #contrib .card .grid{grid-template-columns:1fr 1fr}
   #contrib .card .grid .field:last-child{grid-column:1/-1} }
@@ -2594,7 +2608,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='16.3', VERSIONE_DATA='15 novembre 2026';
+const VERSIONE='16.4', VERSIONE_DATA='15 novembre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
