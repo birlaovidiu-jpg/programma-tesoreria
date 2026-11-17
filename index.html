@@ -727,6 +727,11 @@ tr.voided td{opacity:.5;text-decoration:line-through}
   padding:14px 16px;background:#fff;border-bottom:1px solid var(--line)
 }
 .sheet-head h2{font-size:17px}
+/* barra della ricevuta: verde acceso in entrata, rosso acceso in uscita */
+#mReceipt .sheet-head.rec-in{background:#00d44a;border-bottom-color:#00d44a}
+#mReceipt .sheet-head.rec-out{background:#ff1a2d;border-bottom-color:#ff1a2d}
+#mReceipt .sheet-head.rec-in h2,#mReceipt .sheet-head.rec-out h2,#mReceipt .sheet-head.rec-in small,#mReceipt .sheet-head.rec-out small{color:#fff}
+#mReceipt .sheet-head.rec-in .btn,#mReceipt .sheet-head.rec-out .btn{background:#fff;color:#111;border-color:#fff}
 .sheet-head small{display:block;color:var(--muted);font-size:11.5px;font-weight:500}
 .sheet-body{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:15px;min-height:0}
 /* la riga in cui si scrive la ricerca: sempre in cima, sempre visibile */
@@ -963,44 +968,6 @@ html.tocco .line .l-fundbtn:disabled{background:#f2f4f7;color:var(--muted);curso
 .contrib-tw thead th:nth-child(1){position:sticky;top:0;z-index:5}
 .contrib-tw thead th:nth-child(2){position:sticky;top:0;left:0;z-index:5}
 @media (max-width:700px){ .contrib-tw{max-height:min(66dvh,620px)} }
-/* CONTRIBUTO · spazio al massimo per le righe.
-   Anno, quota, ricerca e i numeri stanno nello stesso riquadro, stretti:
-   i controlli su una riga, i totali sotto su una riga che va a capo da sola.
-   La tabella prende tutta l'altezza che resta nello schermo. */
-#contrib .card{padding:8px 10px;margin-bottom:6px}
-#contrib .card .grid{grid-template-columns:minmax(86px,.6fr) minmax(86px,.6fr) minmax(150px,1.6fr);gap:8px}
-#contrib .card .field label{font-size:10.5px;margin-bottom:2px}
-#contrib .card .field input,#contrib .card .field select{padding-top:6px;padding-bottom:6px;min-height:36px}
-/* i numeri: sei riquadri in fila, uguali, ognuno con la sua etichetta */
-#contrib .sumbar{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin:8px 0 0;padding:0;border:0}
-#contrib .sumbar div{background:#f7f9fb;border:1px solid var(--line);border-radius:10px;padding:5px 8px;display:flex;flex-direction:column;justify-content:space-between;gap:1px}
-#contrib .sumbar span{display:block;font-size:9px;letter-spacing:.04em;line-height:1.2}
-#contrib .sumbar b{display:block;font-size:15px;margin:0;line-height:1.2}
-#contrib .sumbar small{font-size:9px!important}
-@media (max-width:700px){ #contrib .sumbar{grid-template-columns:repeat(3,minmax(0,1fr))} }
-/* titolo e pulsanti sulla stessa riga, attaccati alla barra blu */
-#contrib{margin-top:calc(var(--pad) * -1 + 6px)}
-#contrib .section-head{align-items:center;flex-wrap:nowrap;margin-bottom:6px;gap:8px}
-#contrib .section-head p{display:none}
-#contrib .section-head h2{font-size:17px;white-space:nowrap}
-#contrib .toolbar{flex-wrap:nowrap;gap:6px}
-#contrib .toolbar .btn{padding:7px 11px;min-height:36px;font-size:13px;white-space:nowrap}
-@media (max-width:560px){
-  #contrib .section-head{flex-wrap:wrap}
-  #contrib .toolbar{width:100%}
-  #contrib .toolbar .btn{flex:1 1 0;padding:7px 4px;font-size:12px}
-}
-/* righe piu' basse: nello stesso schermo ne entrano molte di piu' */
-#contrib .contrib-tw td{padding:4px 4px}
-#contrib .contrib-tw th{padding-left:4px;padding-right:4px}
-#contrib .contrib-tw table{min-width:0}
-#contrib .contrib-tw th{padding-top:7px;padding-bottom:7px;letter-spacing:.02em}
-#contrib .contrib-tw .dot{width:24px;height:24px;font-size:13px}
-#contrib .contrib-tw .dot.ex{width:28px;height:28px}
-#contrib .contrib-tw{max-height:max(320px,calc(100dvh - 215px))}
-@media (max-width:700px){ #contrib .contrib-tw{max-height:max(300px,calc(100dvh - 300px))}
-  #contrib .card .grid{grid-template-columns:1fr 1fr}
-  #contrib .card .grid .field:last-child{grid-column:1/-1} }
 .line.lockrow{background:#f3f5f8;border-color:#cfd8e3;opacity:.95}
 .line.lockrow input,.line.lockrow select{background:#eef2f7;color:#5b6672;cursor:not-allowed}
 .line.lockrow .del{opacity:.35;cursor:not-allowed}
@@ -1589,8 +1556,9 @@ html.tocco .line .l-fundbtn:disabled{background:#f2f4f7;color:var(--muted);curso
       <div class="field"><label>Quota mensile €</label><input id="cRate" inputmode="decimal" onchange="saveRate()"></div>
       <div class="field"><label>Cerca persona</label><span class="cercabox"><input id="qContribTab" placeholder="Nome o cognome…" oninput="renderContrib()"><button type="button" class="cercax" onclick="svuotaCerca('qContribTab')" aria-label="Cancella" title="Cancella">✕</button></span></div>
     </div>
-    <div class="sumbar" id="cTotals"></div>
+    <div class="warn" style="margin-top:12px">La colonna <b>Esente</b> serve per chi è stato esonerato dal contributo per decisione della maggioranza: la riga diventa d'ambra e <b>quella persona esce dall'atteso dell'anno</b>. Quello che ha già versato resta contato nel raccolto: si toglie l'obbligo, non i soldi arrivati.</div>
   </div>
+  <div class="sumbar" id="cTotals"></div>
   <div class="contrib-tw"><table><thead id="cHead"></thead><tbody id="cBody"></tbody></table></div>
 </section>
 
@@ -2488,8 +2456,8 @@ html.tocco .line .l-fundbtn:disabled{background:#f2f4f7;color:var(--muted);curso
         <div id="scanAvviso" class="scanavviso" hidden></div>
       </div>
       <div id="scanFiltri" class="scanfiltri" hidden>
+        <button type="button" class="btn light sm" data-modo="documento" onclick="scanFiltro('documento')">📄 Documento</button>
         <button type="button" class="btn light sm" data-modo="colore" onclick="scanFiltro('colore')">🎨 Colore</button>
-        <button type="button" class="btn light sm" data-modo="documento" onclick="scanFiltro('documento')">📄 Grigi</button>
         <button type="button" class="btn light sm" data-modo="bn" onclick="scanFiltro('bn')">⬛ Bianco e nero</button>
       </div>
       <div id="scanPagine" class="scanpag"></div>
@@ -2608,7 +2576,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='16.4', VERSIONE_DATA='15 novembre 2026';
+const VERSIONE='16.1', VERSIONE_DATA='17 novembre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -3784,6 +3752,7 @@ async function ricevuteListaCondividi(){
 function openReceipt(type,editId){
   const editing=state.receipts.find(r=>r.id===editId);
   draft={type:editing?editing.type:type,id:editing?editing.id:null,attachments:editing?[...(editing.attachments||[])]:[]};
+  $('mReceipt').querySelector('.sheet-head').className='sheet-head '+(draft.type==='Entrata'?'rec-in':'rec-out');
   $('mrTitle').textContent=editing?`Modifica ricevuta ${editing.number}`:`Nuova ricevuta in ${draft.type.toLowerCase()}`;
   $('mrSub').textContent=draft.type==='Uscita'?'In uscita puoi usare solo le casse locali':'Scegli cassa e deposito per ogni riga';
   $('mrSave').textContent=editing?'Salva modifiche':'Conferma ricevuta';
@@ -3974,7 +3943,7 @@ function addLine(l={}){
      non le si assegna una cassa del Campo, cosa che l'elenco impedisce. */
   d.dataset.orig=(l.fund&&destOf(l.fund)==='Campo')?'campo':'nuova';
   d.innerHTML=`
-    <input class="l-desc" placeholder="Descrizione" value="${esc(l.desc||'')}" oninput="compilaImporto(this.closest('.line'))">
+    <input class="l-desc" placeholder="Descrizione" value="${esc(l.desc||'')}">
     <button type="button" class="l-mese" title="I mesi del contributo · toccala per sceglierne anche più di uno"
             data-mesi="${(l.mesi&&l.mesi.length?l.mesi:(Number(l.mese)?[Number(l.mese)]:[])).join(',')}"
             onclick="apriMesi(this)">${esc(etichettaMesi(l.mesi&&l.mesi.length?l.mesi:(Number(l.mese)?[Number(l.mese)]:[])))}</button>
@@ -3989,7 +3958,7 @@ function addLine(l={}){
       ${state.boxes.map(b=>`<option value="${esc(b.name)}"${b.name===l.box?' selected':''}>${esc(tn(b.name))}</option>`).join('')}
     </select>
     <span class="l-dest none">—</span>
-    <input class="l-amt" inputmode="decimal" placeholder="0,00" value="${l.amount?fmtAmt(l.amount):''}" oninput="this.dataset.auto='';calcTotal()" onblur="normAmt(this)">
+    <input class="l-amt" inputmode="decimal" placeholder="0,00" value="${l.amount?fmtAmt(l.amount):''}" oninput="calcTotal()" onblur="normAmt(this)">
     <button class="del" onclick="this.closest('.line').remove();calcTotal()" title="Elimina riga">×</button>`;
   box.appendChild(d);
   /* una cassa del Campo già scritta resta nell'elenco anche se adesso è
@@ -4199,7 +4168,6 @@ function syncLine(sel,dallUtente){
   b.textContent=dest||'—';
   b.className='l-dest '+(dest||'none');
   meseDellaRiga(riga);
-  compilaImporto(riga);
   /* LA TASTIERA NON DEVE SPARIRE NEMMENO QUI.
      Su iPad la tendina della cassa e' una ruota di sistema: mentre gira, la
      tastiera se ne va, e scelta la cassa non torna piu' — bisognava toccare
@@ -4234,27 +4202,6 @@ function meseDellaRiga(riga,forza){
   const anno=String($('rDate')?.value||today()).slice(0,4);
   const m=meseProposto(nome,anno,draft?.id);
   mettiMesi(sel,m?[m]:[]);
-}
-/* L'IMPORTO SI COMPILA DA SOLO SULLE RIGHE DEL CONTRIBUTO.
-   quota (da ✅ Contributo) × mesi scelti × persone: l'intestatario e chi e'
-   scritto dopo un «+» nella descrizione («+Lili» = anche lei, stessi mesi).
-   Si scrive solo se la casella e' vuota o l'aveva scritta il programma: una
-   cifra digitata a mano non si tocca mai, e nemmeno quella di una ricevuta
-   gia' registrata che si riapre. */
-function compilaImporto(riga){
-  const amt=riga?.querySelector('.l-amt'); if(!amt) return;
-  if(amt.value.trim()&&amt.dataset.auto!=='1') return;
-  let v=0;
-  if(riga.classList.contains('conmese')){
-    const mesi=leggiMesi(riga.querySelector('.l-mese')).length;
-    if(mesi){
-      const chi=personeContributo(riga.querySelector('.l-desc')?.value||'',($('rName')?.value||'').trim());
-      v=rate()*mesi*Math.max(1,chi.length);
-    }
-  }
-  if(v>0){ amt.value=fmtAmt(v); amt.dataset.auto='1' }
-  else if(amt.dataset.auto==='1'){ amt.value=''; amt.dataset.auto='' }
-  calcTotal();
 }
 /* i mesi di una casella, letti e scritti */
 const leggiMesi=b=>String(b?.dataset.mesi||'').split(',').map(Number).filter(c=>c>0).sort((a,c)=>a-c);
@@ -4350,13 +4297,13 @@ function giraMese(m){
   if(i<0) l.push(cod); else l.splice(i,1);
   mettiMesi(mesiBtn,l);
   mesiBtn.dataset.scelto=l.length?'1':'';
-  disegnaMesi(); compilaImporto(mesiBtn.closest('.line')); calcTotal();
+  disegnaMesi(); calcTotal();
 }
 function cambiaAnnoMesi(d){
   mesiAnno=Math.max(2000,Math.min(new Date().getFullYear()+1,mesiAnno+d));
   disegnaMesi();
 }
-function svuotaMesi(){ if(!mesiBtn) return; mettiMesi(mesiBtn,[]); mesiBtn.dataset.scelto=''; disegnaMesi(); compilaImporto(mesiBtn.closest('.line')); calcTotal() }
+function svuotaMesi(){ if(!mesiBtn) return; mettiMesi(mesiBtn,[]); mesiBtn.dataset.scelto=''; disegnaMesi(); calcTotal() }
 function chiudiMesi(){ const p=$('mesiPop'); if(p) p.hidden=true; mesiBtn=null }
 document.addEventListener('pointerdown',e=>{
   if(e.target.closest?.('#mesiPop')||e.target.closest?.('.l-mese')) return;
@@ -4367,7 +4314,6 @@ function rinfrescaMesi(){
   document.querySelectorAll('#lines .line').forEach(r=>{
     const sel=r.querySelector('.l-mese');
     if(sel&&!sel.dataset.scelto) { mettiMesi(sel,[]); meseDellaRiga(r) }
-    compilaImporto(r);
   });
 }
 /* le righe bloccate non si contano come «da leggere»: i valori ci sono lo stesso */
@@ -4473,29 +4419,32 @@ $('rpShot')?.addEventListener('change',e=>aggiungiRpAtt(e.target));
    Un allegato cosi' si legge molto meglio della foto e occupa una frazione
    dello spazio: e' il motivo per cui questo pulsante esiste.
    ========================================================== */
-const SCAN_LATO=4400;      /* quanto viene grande la pagina raddrizzata: massima qualita' */
-const SCAN_QUALITA=.97;    /* la compressione JPEG: quasi senza perdita, massima qualita' */
+const SCAN_LATO=2400;      /* quanto viene grande la pagina raddrizzata */
+const SCAN_QUALITA=.85;    /* la compressione: il foglio resta netto e pesa poco */
 const SCAN_MAXPAG=10;      /* quante pagine in una scansione sola */
 let scanStream=null, scanFoto=null, scanQuad=null, scanPagine=[],
-    scanModo='colore', scanOcchio=0, scanPreso=-1, scanVivo=null, scanMiss=0;
+    scanModo='documento', scanOcchio=0, scanPreso=-1, scanVivo=null, scanMiss=0;
 
 /* ---------- la finestra ---------- */
 function apriScanner(){
   if(!draft) return;
   if(draft.attachments.length>=MAXALLEGATI){toast(`Massimo ${MAXALLEGATI} allegati per ricevuta`);return}
-  scanPagine=[]; scanFoto=null; scanQuad=null; scanModo='colore'; scanPreso=-1;
+  scanPagine=[]; scanFoto=null; scanQuad=null; scanModo='documento'; scanPreso=-1;
   $('scanPagine').innerHTML='';
   $('scanEsito').removeAttribute('src');
   $('mScan').classList.add('show');
   scanCamera();
 }
 function scanChiudi(){
-  scanOcchioFerma(); scanSpegniCamera();
+  scanOcchioFerma(); scanPausaCamera();
   scanFoto=null; scanQuad=null; scanPagine=[]; scanPreso=-1;
   $('scanPagine').innerHTML='';
   $('scanEsito').removeAttribute('src');
   closeModal('mScan');
 }
+/* chiudendo la finestra la fotocamera resta aperta ma in pausa: cosi' il
+   permesso di iOS si chiede una volta sola e non a ogni scansione */
+function scanPausaCamera(){ try{ const v=$('scanVideo'); v&&v.pause() }catch(e){} }
 function scanSpegniCamera(){
   try{ scanStream&&scanStream.getTracks().forEach(t=>t.stop()) }catch(e){}
   scanStream=null;
@@ -4529,7 +4478,8 @@ function scanFase(f){
 async function scanCamera(){
   scanFase('camera');
   const v=$('scanVideo');
-  if(scanStream){ try{ await v.play() }catch(e){} return scanOcchioAvvia() }
+  if(scanStream&&!scanStream.getTracks().some(t=>t.readyState==='live')) scanStream=null;
+  if(scanStream){ if(v.srcObject!==scanStream) v.srcObject=scanStream; try{ await v.play() }catch(e){} return scanOcchioAvvia() }
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)
     return scanSenzaCamera('Questo dispositivo non lascia aprire la fotocamera da dentro il programma.');
   try{
@@ -4538,7 +4488,7 @@ async function scanCamera(){
        programma: nessuna pagina web lo puo' togliere. */
     try{
       scanStream=await navigator.mediaDevices.getUserMedia({
-        video:{facingMode:{ideal:'environment'},width:{ideal:4096},height:{ideal:3072}},audio:false});
+        video:{facingMode:{ideal:'environment'},width:{ideal:3840},height:{ideal:2160}},audio:false});
     }catch(e0){
       if(e0&&e0.name==='NotAllowedError') throw e0;
       scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});
@@ -4582,7 +4532,7 @@ function scanGuarda(){
   const k=Math.min(rv.width/v.videoWidth,rv.height/v.videoHeight);
   const dx=(rv.left-rc.left)+(rv.width-v.videoWidth*k)/2;
   const dy=(rv.top-rc.top)+(rv.height-v.videoHeight*k)/2;
-  let q=scanTrovaQuad(v,v.videoWidth,v.videoHeight,320);
+  let q=scanTrovaQuad(v,v.videoWidth,v.videoHeight,200);
   /* i bordi non tremano: si fa la media con quelli di prima, e se per un
      attimo il foglio sfugge si tengono i vecchi per qualche istante */
   if(q){ if(scanVivo) q=q.map((p,i)=>({x:(p.x+scanVivo[i].x)/2,y:(p.y+scanVivo[i].y)/2})); scanVivo=q; scanMiss=0 }
@@ -4604,28 +4554,10 @@ function scanGuarda(){
 }
 
 /* ---------- lo scatto ---------- */
-async function scanScatta(){
+function scanScatta(){
   const v=$('scanVideo');
   if(!v.videoWidth){ toast('La fotocamera non è ancora pronta'); return }
-  /* dove il dispositivo lo permette (Chrome, Android) si prende la FOTO vera,
-     alla risoluzione piena dell'obiettivo, e non un fotogramma del video */
-  try{
-    const tr=scanStream&&scanStream.getVideoTracks()[0];
-    if(tr&&window.ImageCapture){
-      const blob=await new window.ImageCapture(tr).takePhoto();
-      const bm=await createImageBitmap(blob);
-      const rv=v.videoWidth/v.videoHeight, rb=bm.width/bm.height;
-      if(bm.width*bm.height>=v.videoWidth*v.videoHeight&&Math.abs(rv-rb)<.05){
-        const kk=Math.min(1,5200/Math.max(bm.width,bm.height));
-        const cc=document.createElement('canvas');
-        cc.width=Math.round(bm.width*kk); cc.height=Math.round(bm.height*kk);
-        cc.getContext('2d',{willReadFrequently:true}).drawImage(bm,0,0,cc.width,cc.height);
-        try{ bm.close() }catch(e){}
-        return scanDallaFoto(cc);
-      }
-    }
-  }catch(e){ /* niente foto piena: si usa il fotogramma */ }
-  const k=Math.min(1,5200/Math.max(v.videoWidth,v.videoHeight));
+  const k=Math.min(1,4000/Math.max(v.videoWidth,v.videoHeight));
   const c=document.createElement('canvas');
   c.width=Math.round(v.videoWidth*k); c.height=Math.round(v.videoHeight*k);
   c.getContext('2d',{willReadFrequently:true}).drawImage(v,0,0,c.width,c.height);
@@ -4633,13 +4565,13 @@ async function scanScatta(){
 }
 function scanDallaFoto(c){
   scanFoto=c;
-  scanQuad=scanTrovaQuad(c,c.width,c.height,900)||scanQuadPieno(c);
+  scanQuad=scanTrovaQuad(c,c.width,c.height,480)||scanQuadPieno(c);
   scanFase('taglio');
   scanFiltro(scanModo);
   scanDisegnaTaglio();
 }
 function scanQuadPieno(c){
-  const mx=c.width*.01, my=c.height*.01;
+  const mx=c.width*.04, my=c.height*.04;
   return [{x:mx,y:my},{x:c.width-mx,y:my},{x:c.width-mx,y:c.height-my},{x:mx,y:c.height-my}];
 }
 function scanTuttaFoto(){ if(!scanFoto) return; scanQuad=scanQuadPieno(scanFoto); scanDisegnaTaglio() }
@@ -4731,7 +4663,7 @@ function scanTrovaQuad(src,sw,sh,larg){
     d=x.getImageData(0,0,W,H).data;
   }catch(e){ return null }
   const tot=W*H, hist=new Int32Array(256);
-  let f=new Uint8Array(tot), sat=new Uint8Array(tot);
+  let f=new Uint8Array(tot);
   /* il «bianco» di un foglio: il canale PIU' SCURO e' alto (carta bianca o
      grigia), mentre il legno o un tavolo colorato hanno sempre un canale
      basso. Conta anche un po' la luminosita' per non confondere l'ombra */
@@ -4739,8 +4671,6 @@ function scanTrovaQuad(src,sw,sh,larg){
     const r=d[p], g1=d[p+1], b=d[p+2];
     const mn=r<g1?(r<b?r:b):(g1<b?g1:b);
     f[i]=(mn*3+((r*77+g1*150+b*29)>>8))>>2;
-    const mx=r>g1?(r>b?r:b):(g1>b?g1:b);
-    sat[i]=mx?((mx-mn)*255/mx)|0:0;
   }
   /* chiusura: prima si «allarga» il chiaro e poi lo si «restringe» di
      altrettanto. Le righe di scritto, sottili e scure, spariscono dentro il
@@ -4771,32 +4701,6 @@ function scanTrovaQuad(src,sw,sh,larg){
     sB+=i*hist[i];
     const mB=sB/nB, mF=(somma-sB)/nF, v=nB*nF*(mB-mF)*(mB-mF);
     if(v>meglio){ meglio=v; soglia=i }
-  }
-  /* L'OMBRA SUL FOGLIO NON LO DEVE TAGLIARE.
-     Se un pezzo di foglio e' in ombra (la mano, il telefono) diventa grigio
-     scuro e la soglia lo scambia per tavolo: il foglio verrebbe preso a meta'.
-     Allora si cerca una SECONDA soglia fra tavolo e ombra: se il gruppo di
-     mezzo e' molto piu' chiaro del tavolo, abbastanza grande e NEUTRO (poco
-     colorato, come la carta in ombra e non come il legno), e' foglio in ombra
-     e si include. */
-  {
-    let nA=0,sA=0,sT=0,nT=0,m2=-1,t1=-1;
-    for(let i=0;i<=soglia;i++){ nT+=hist[i]; sT+=i*hist[i] }
-    for(let i=0;i<=soglia;i++){
-      nA+=hist[i]; const nB2=nT-nA; if(!nA||!nB2) continue;
-      sA+=i*hist[i];
-      const mA=sA/nA, mB=(sT-sA)/nB2, v=nA*nB2*(mA-mB)*(mA-mB);
-      if(v>m2){ m2=v; t1=i }
-    }
-    if(t1>=0){
-      let n0=0,s0=0,n1=0,s1=0,sat1=0;
-      for(let i=0;i<tot;i++){
-        const v=f[i];
-        if(v<=t1){ n0++; s0+=v }
-        else if(v<=soglia){ n1++; s1+=v; sat1+=sat[i] }
-      }
-      if(n1>=tot*.03&&n0&&s1/n1>=1.8*Math.max(12,s0/n0)&&sat1/n1<80) soglia=t1;
-    }
   }
   const lab=new Int32Array(tot), pila=new Int32Array(tot);
   let piuGrande=0, quale=0, id=0;
@@ -4973,7 +4877,7 @@ function scanRifinisci(cv,modo){
   const w=cv.width, h=cv.height;
   const g=cv.getContext('2d',{willReadFrequently:true});
   const im=g.getImageData(0,0,w,h), D=im.data;
-  const lungo=110;
+  const lungo=72;
   const bw=Math.max(8,w>=h?lungo:Math.round(lungo*w/h));
   const bh=Math.max(8,w>=h?Math.round(lungo*h/w):lungo);
   const bc=document.createElement('canvas'); bc.width=bw; bc.height=bh;
@@ -4985,14 +4889,10 @@ function scanRifinisci(cv,modo){
     const m=bd[p]>bd[p+1]?bd[p]:bd[p+1];
     L[i]=m>bd[p+2]?m:bd[p+2];
   }
-  /* massimo locale (le lettere non tirano giu' la luce) e poi due sfocature
-     in fila: segue anche il bordo netto dell'ombra di una mano senza lasciare
-     aloni scuri sulla carta */
-  L=scanScatola(L,bw,bh,3,true);
-  L=scanScatola(L,bw,bh,3,false);
+  L=scanScatola(L,bw,bh,2,true);
   L=scanScatola(L,bw,bh,3,false);
   const kx=(bw-1)/(w>1?w-1:1), ky=(bh-1)/(h>1?h-1:1);
-  const nero=modo==='colore'?20:52, bianco=modo==='colore'?238:232;
+  const nero=modo==='colore'?24:52, bianco=modo==='colore'?246:236;
   const scala=255/(bianco-nero);
   let o=0;
   for(let y=0;y<h;y++){
@@ -5129,7 +5029,7 @@ $('scanFile').addEventListener('change',async e=>{
       const i=new Image(); i.onerror=()=>rej(new Error('immagine non valida'));
       i.onload=()=>res(i); i.src=url;
     });
-    const k=Math.min(1,5200/Math.max(im.naturalWidth,im.naturalHeight));
+    const k=Math.min(1,2600/Math.max(im.naturalWidth,im.naturalHeight));
     const c=document.createElement('canvas');
     c.width=Math.round(im.naturalWidth*k); c.height=Math.round(im.naturalHeight*k);
     c.getContext('2d',{willReadFrequently:true}).drawImage(im,0,0,c.width,c.height);
@@ -20145,9 +20045,7 @@ function svuotaRicercheIn(root){
 }
 function closeModal(id){
   const m=$(id);
-  try{ if(m.contains(document.activeElement)) document.activeElement.blur() }catch(e){}
   m.classList.remove('show');
-  window.rimisuraSchermo?.();
   svuotaRicercheIn(m);
 }
 document.querySelectorAll('.modal').forEach(m=>{
@@ -20180,18 +20078,9 @@ window.addEventListener('resize',()=>{if($('mView').classList.contains('show'))f
   const vv=window.visualViewport; if(!vv) return;
   const R=document.documentElement;
   let atteso=0;
-  /* C'e' un campo di testo col fuoco? Se no, la tastiera non puo' essere
-     aperta: la finestra deve tornare alta come tutto lo schermo. Quando la
-     ricevuta si salva, il campo sparisce con la finestra e Safari non manda
-     nessun avviso: la misura restava quella «piccola» della tastiera. */
-  const scrive=()=>{ const a=document.activeElement;
-    return !!a&&(a.isContentEditable||(/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&
-      !/^(button|checkbox|radio|submit|file|range|color)$/i.test(a.type||''))) };
   const misura=()=>{
-    const chiusa=!scrive()&&(vv.scale||1)<=1.01;
-    const alt=chiusa?Math.max(vv.height,window.innerHeight):vv.height;
-    R.style.setProperty('--vvh',Math.round(alt)+'px');
-    R.style.setProperty('--vvt',chiusa?'0px':Math.round(vv.offsetTop)+'px');
+    R.style.setProperty('--vvh',Math.round(vv.height)+'px');
+    R.style.setProperty('--vvt',Math.round(vv.offsetTop)+'px');
     /* La finestra arriva davvero in fondo allo schermo, o sotto c'e' la
        tastiera? Serve alla barra dei pulsanti della ricevuta: il bordo di
        sicurezza del telefono ha senso solo nel primo caso, nel secondo sono
@@ -20212,10 +20101,6 @@ window.addEventListener('resize',()=>{if($('mView').classList.contains('show'))f
      Percio' si rimisura anche quando un campo perde il fuoco — la tastiera se
      ne sta andando — e appena il programma ha finito di caricarsi. */
   const dopo=ms=>setTimeout(misura,ms);
-  window.rimisuraSchermo=()=>{ misura(); dopo(60); dopo(250); dopo(600) };
-  /* finche' una finestra e' aperta si rimisura ogni 300 ms: costa niente e
-     la finestra non resta piu' piccola quando la tastiera se ne va */
-  setInterval(()=>{ if(document.querySelector('.modal.show')) misura() },300);
   document.addEventListener('focusout',()=>{ dopo(120); dopo(450) });
   window.addEventListener('pageshow',()=>dopo(60));
   window.addEventListener('load',()=>{ dopo(0); dopo(600) });
