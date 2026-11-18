@@ -549,10 +549,10 @@ tr:last-child td{border-bottom:0}
 .tag.void{background:#e9e9e9;color:#7a7a7a}
 tr.voided td{opacity:.5;text-decoration:line-through}
 /* Ricevute: scegliendo Entrate o Uscite le righe si alternano, colori molto spenti */
-#recRows tr.zin0 td{background:#dcebe1}
-#recRows tr.zin1 td{background:#eef6f1}
-#recRows tr.zout0 td{background:#f1dedb}
-#recRows tr.zout1 td{background:#f9eeed}
+#recRows tr.zin0 td{background:#eef6f1}
+#recRows tr.zin1 td{background:#fbf8f0}
+#recRows tr.zout0 td{background:#f9eeed}
+#recRows tr.zout1 td{background:#fbf8f0}
 /* Ricevute: saldi e ricerche piu' intuitivi — colori molto spenti */
 #recSum div,#recBoxSum .sumbar div{transition:transform .15s,box-shadow .15s,background .2s;border-left:4px solid #cfd8e3}
 #recSum div:hover,#recBoxSum .sumbar div:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(60,80,110,.10)}
@@ -571,9 +571,12 @@ tr.voided td{opacity:.5;text-decoration:line-through}
 #recSum div.clic,#recBoxSum .sumbar div.clic{cursor:pointer}
 #recSum div.clic:active,#recBoxSum .sumbar div.clic:active{transform:scale(.98)}
 #recSum div.sel,#recBoxSum .sumbar div.sel{box-shadow:0 0 0 2px #9fb8d2 inset}
-/* «Saldi attuali»: la barra bianca stretta, 3 mm sopra e 3 mm sotto le caselle */
-#recBoxSum{padding-top:3mm;padding-bottom:3mm}
-#recBoxSum>h3{margin-bottom:2mm}
+/* i saldi dei depositi: niente barra bianca dietro, caselle uguali a quelle di sopra (4 per riga, stessa grandezza) */
+#recBoxSum{background:none;border:0;box-shadow:none;padding:0;margin-bottom:0}
+#recBoxSum .sumbar,#recSum{grid-template-columns:repeat(4,minmax(0,1fr))}
+#recBoxSum .sumbar{margin:12px 0!important}
+#recSum div,#recBoxSum .sumbar div{min-height:80px}
+@media (max-width:700px){ #recBoxSum .sumbar,#recSum{grid-template-columns:repeat(2,minmax(0,1fr))} }
 #recChips{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin:10px 0 0}
 #recChips:empty{display:none}
 #recChips .chip{display:inline-flex;align-items:center;gap:6px;background:#eaf0f8;color:#33506f;border:1px solid #cddbe9;border-radius:999px;padding:5px 6px 5px 12px;font-size:12.5px;font-weight:600;cursor:pointer}
@@ -2611,7 +2614,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='16.8', VERSIONE_DATA='18 novembre 2026';
+const VERSIONE='16.9', VERSIONE_DATA='18 novembre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -11685,7 +11688,7 @@ async function autoBackupTick(subito){
    localStorage (per dispositivo). Browser vuoto = niente da aggiornare:
    la versione si segna e basta. Sta sotto la schermata di blocco (z-index). */
 const NOVITA=[
-  'Ricevute · tolto il titolo «Saldi attuali»: la barra bianca dei saldi ha ora 3 mm sopra e 3 mm sotto le caselle degli importi.'
+  'Ricevute · le righe alternano il colore del tipo più chiaro e un bianco panna; i saldi dei depositi sono caselle uguali a quelle di sopra (stessa grandezza, ben allineate) e senza la barra bianca dietro.'
 ];
 function avvisoAggiornamento(){
   let visto=null;
