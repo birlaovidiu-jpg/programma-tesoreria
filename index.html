@@ -2611,7 +2611,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='16.7', VERSIONE_DATA='18 novembre 2026';
+const VERSIONE='16.8', VERSIONE_DATA='18 novembre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -3654,7 +3654,7 @@ function renderReceipts(){
         di ogni ricevuta, nel periodo scelto: <b>${euro(tIn-tOut)}</b>.</div>`
     : '');
 
-  $('recBoxSum').innerHTML=`<h3>Saldi attuali</h3><div class="sumbar" style="margin:0">`+
+  $('recBoxSum').innerHTML=`<div class="sumbar" style="margin:0">`+
     state.boxes.map(b=>`<div><span>💰 ${esc(tn(b.name))}</span><b>${euro(boxBalance(b.name))}</b></div>`).join('')+
     `<div><span>⇢ Da versare al Campo</span><b style="color:var(--violet)">${euro(fieldPending())}</b></div>
      <div><span>⌂ Saldo locale</span><b style="color:var(--gold)">${euro(localBalance())}</b></div></div>`;
@@ -11685,7 +11685,7 @@ async function autoBackupTick(subito){
    localStorage (per dispositivo). Browser vuoto = niente da aggiornare:
    la versione si segna e basta. Sta sotto la schermata di blocco (z-index). */
 const NOVITA=[
-  'Ricevute · la barra bianca dei «Saldi attuali» è più stretta: 3 mm sopra e 3 mm sotto le caselle degli importi.'
+  'Ricevute · tolto il titolo «Saldi attuali»: la barra bianca dei saldi ha ora 3 mm sopra e 3 mm sotto le caselle degli importi.'
 ];
 function avvisoAggiornamento(){
   let visto=null;
