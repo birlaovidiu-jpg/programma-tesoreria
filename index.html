@@ -931,6 +931,9 @@ html.tocco .line .l-fundbtn:disabled{background:#f2f4f7;color:var(--muted);curso
 #a5Host,#archA5{display:flex;flex-direction:column;width:100%}
 #a5Host img.a5img,#archA5 img.a5img{display:block;align-self:center;width:148mm;max-width:100%;height:auto;
   border-radius:2px;box-shadow:0 6px 26px rgba(0,0,0,.16);background:#fff}
+#a5Host img.a5img{cursor:zoom-in}
+#zoomRic{position:fixed;inset:0;z-index:99999;background:rgba(10,14,20,.96);display:flex;align-items:center;justify-content:center;cursor:zoom-out;-webkit-tap-highlight-color:transparent}
+#zoomRic img{width:100vw;height:100vh;height:100dvh;object-fit:contain;background:transparent;box-shadow:none;border-radius:0}
 .a5{
   width:148mm;min-height:210mm;background:#fff;color:#15202b;flex:0 0 auto;
   display:flex;flex-direction:column;transform-origin:top center;
@@ -2614,7 +2617,7 @@ const DEFAULTS={
 /* Il numero di versione serve a una cosa sola ma importante: capire in due
    secondi se il file aperto è l'ultimo o è quello vecchio rimasto nella
    memoria del browser. Va cambiato a ogni modifica del programma. */
-const VERSIONE='16.10', VERSIONE_DATA='18 novembre 2026';
+const VERSIONE='16.11', VERSIONE_DATA='21 novembre 2026';
 let state=load(), draft=null, viewId=null, pendingSend=null;
 /* aperta mentre una ricevuta si sta registrando: impedisce il doppio tocco */
 let salvataggioInCorso=false;
@@ -4036,7 +4039,7 @@ function addLine(l={}){
      non le si assegna una cassa del Campo, cosa che l'elenco impedisce. */
   d.dataset.orig=(l.fund&&destOf(l.fund)==='Campo')?'campo':'nuova';
   d.innerHTML=`
-    <input class="l-desc" placeholder="Descrizione" value="${esc(l.desc||'')}">
+    <input class="l-desc" placeholder="Descrizione" value="${esc(l.desc||'')}" oninput="importoAuto(this.closest('.line'))">
     <button type="button" class="l-mese" title="I mesi del contributo · toccala per sceglierne anche più di uno"
             data-mesi="${(l.mesi&&l.mesi.length?l.mesi:(Number(l.mese)?[Number(l.mese)]:[])).join(',')}"
             onclick="apriMesi(this)">${esc(etichettaMesi(l.mesi&&l.mesi.length?l.mesi:(Number(l.mese)?[Number(l.mese)]:[])))}</button>
@@ -4051,7 +4054,7 @@ function addLine(l={}){
       ${state.boxes.map(b=>`<option value="${esc(b.name)}"${b.name===l.box?' selected':''}>${esc(tn(b.name))}</option>`).join('')}
     </select>
     <span class="l-dest none">—</span>
-    <input class="l-amt" inputmode="decimal" placeholder="0,00" value="${l.amount?fmtAmt(l.amount):''}" oninput="calcTotal()" onblur="normAmt(this)">
+    <input class="l-amt" inputmode="decimal" placeholder="0,00" value="${l.amount?fmtAmt(l.amount):''}"${l.amount?' data-man="1"':''} oninput="this.dataset.man=this.value.trim()?'1':'';calcTotal()" onblur="normAmt(this)">
     <button class="del" onclick="this.closest('.line').remove();calcTotal()" title="Elimina riga">×</button>`;
   box.appendChild(d);
   /* una cassa del Campo già scritta resta nell'elenco anche se adesso è
@@ -4295,6 +4298,25 @@ function meseDellaRiga(riga,forza){
   const anno=String($('rDate')?.value||today()).slice(0,4);
   const m=meseProposto(nome,anno,draft?.id);
   mettiMesi(sel,m?[m]:[]);
+  importoAuto(riga);
+}
+/* L'IMPORTO ESATTO SI SCRIVE DA SOLO sulle righe del Contributo (entrate):
+   quota × mesi scelti × persone, dove le persone sono l'intestatario più i
+   «+ Nome» scritti nella descrizione di quella riga — la stessa regola con
+   cui il programma controlla l'importo quando si conferma la ricevuta.
+   Se l'importo lo scrive lui a mano, il programma non lo tocca più. */
+function importoAuto(riga){
+  const amt=riga?.querySelector('.l-amt'); if(!amt) return;
+  if(draft?.type!=='Entrata'||amt.dataset.man) return;
+  const fund=riga.querySelector('.l-fund')?.value||'';
+  if(!fund||!cassaContributo(fund)) return;
+  const q=rate(); if(!(q>0)) return;
+  const mesi=leggiMesi(riga.querySelector('.l-mese'));
+  if(!mesi.length) return;
+  const nome=($('rName')?.value||'').trim();
+  const pers=personeContributo(riga.querySelector('.l-desc')?.value||'',nome).length||1;
+  amt.value=fmtAmt(Math.round(q*mesi.length*pers*100)/100);
+  calcTotal();
 }
 /* i mesi di una casella, letti e scritti */
 const leggiMesi=b=>String(b?.dataset.mesi||'').split(',').map(Number).filter(c=>c>0).sort((a,c)=>a-c);
@@ -4390,6 +4412,7 @@ function giraMese(m){
   if(i<0) l.push(cod); else l.splice(i,1);
   mettiMesi(mesiBtn,l);
   mesiBtn.dataset.scelto=l.length?'1':'';
+  importoAuto(mesiBtn.closest('.line'));
   disegnaMesi(); calcTotal();
 }
 function cambiaAnnoMesi(d){
@@ -4407,6 +4430,7 @@ function rinfrescaMesi(){
   document.querySelectorAll('#lines .line').forEach(r=>{
     const sel=r.querySelector('.l-mese');
     if(sel&&!sel.dataset.scelto) { mettiMesi(sel,[]); meseDellaRiga(r) }
+    importoAuto(r);
   });
 }
 /* le righe bloccate non si contano come «da leggere»: i valori ci sono lo stesso */
@@ -5406,6 +5430,19 @@ function fitA5(){
   /* il ridimensionamento non cambia lo spazio occupato: lo recupero qui */
   el.style.marginBottom=Math.round(el.offsetHeight*(k-1))+'px';
 }
+/* RICEVUTA A TUTTO SCHERMO: toccando la ricevuta aperta si ingrandisce quanto lo schermo; un altro tocco (o Esc) la chiude */
+function chiudiZoomRic(){ document.getElementById('zoomRic')?.remove() }
+document.addEventListener('click',e=>{
+  const img=e.target?.closest?.('#a5Host img.a5img');
+  if(!img) return;
+  chiudiZoomRic();
+  const d=document.createElement('div'); d.id='zoomRic';
+  d.innerHTML='<img alt="'+esc(img.alt||'Ricevuta')+'">';
+  d.firstChild.src=img.src;
+  d.addEventListener('click',chiudiZoomRic);
+  document.body.appendChild(d);
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&document.getElementById('zoomRic')){ chiudiZoomRic(); e.stopPropagation() } },true);
 function viewReceipt(id){
   const r=state.receipts.find(x=>x.id===id); if(!r) return;
   viewId=id;
@@ -6402,20 +6439,23 @@ function prossimoMeseUtile(pagati,inizio){
 function meseProposto(nome,anno,saltaId){
   if(!nome) return 0;
   const y=Number(anno)||new Date().getFullYear();
-  const prima=y-1;
-  const iniP=meseInizio(nome,prima);
-  if(iniP<=12){
-    const pagP=autoContrib(prima,saltaId)[nome]||new Set();
-    if(pagP.size){
-      const m=prossimoMeseUtile(pagP,iniP);
-      if(m<=12) return codMese(prima,m);
-    }
+  /* SEMPRE IL MESE DOPO L'ULTIMO PAGATO, anche a cavallo d'anno.
+     Si guarda l'ultimo mese pagato da quella persona negli anni vicini —
+     prima o dopo quello della ricevuta — e si propone il successivo: dopo
+     dicembre 2026 viene gennaio 2027, anche se l'anno è finito. Se non ha
+     mai pagato niente si parte dal mese in cui è entrata (o da gennaio). */
+  let ultimo=0;
+  for(let a=y-3;a<=y+1;a++){
+    const set=autoContrib(a,saltaId)[nome]; if(!set) continue;
+    set.forEach(m=>{ const c=codMese(a,m); if(c>ultimo) ultimo=c });
+  }
+  if(ultimo){
+    let a=annoDiCod(ultimo), m=meseDiCod(ultimo)+1;
+    if(m>12){ a++; m=1 }
+    return codMese(a,m);
   }
   const inizio=meseInizio(nome,y);
-  if(inizio>12) return 0;
-  const gia=autoContrib(y,saltaId)[nome]||new Set();
-  const m=prossimoMeseUtile(gia,inizio);
-  return m<=12?codMese(y,m):0;
+  return inizio>12?0:codMese(y,inizio);
 }
 /* i mesi di una ricevuta: prima quelli scelti nella casella, se ci sono;
    se no quelli scritti nella descrizione, come si è sempre fatto */
@@ -11688,7 +11728,8 @@ async function autoBackupTick(subito){
    localStorage (per dispositivo). Browser vuoto = niente da aggiornare:
    la versione si segna e basta. Sta sotto la schermata di blocco (z-index). */
 const NOVITA=[
-  'Ricevute · le righe alternano il colore del tipo (verde chiaro per le entrate, rosa chiaro per le uscite) e il bianco.'
+  'Ricevuta aperta · toccandola si ingrandisce a tutto schermo; un altro tocco la richiude.',
+  'Contributo Chiesa · il mese proposto è sempre quello dopo l\'ultimo pagato, anche a cavallo d\'anno; l\'importo esatto si scrive da solo (quota × mesi × persone).'
 ];
 function avvisoAggiornamento(){
   let visto=null;
